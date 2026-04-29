@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"easyserver/auth"
+	"easyserver/bundler"
 	"easyserver/ipfilter"
 	"easyserver/net"
 	"easyserver/pkg/common"
@@ -56,6 +57,7 @@ type Config struct {
 	Env         map[string]*Arg                   `yaml:"env,omitempty" json:"env,omitempty"`
 
 	Auth      map[string]*auth.AuthConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
+	Build     *bundler.Config             `yaml:"build,omitempty" json:"build,omitempty"`
 	RawRoutes RawYAML                     `yaml:"routes,omitempty" json:"-,omitempty"`
 	Routes    []*Route                    `yaml:"-" json:"Routes"`
 
@@ -372,6 +374,20 @@ func (s *Server) renderVars() error {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	if s.Config.Build != nil {
+		if err := bundler.Run(*s.Config.Build); err != nil {
+			return fmt.Errorf("frontend build failed: %w", err)
+		}
+		if s.Config.Build.Watch {
+			bundler.StartWatcher(*s.Config.Build, ctx)
+		}
+		s.Config.Routes = append(s.Config.Routes, &Route{
+			Type: "static",
+			Path: "/",
+			StaticDirConfig: &routes.StaticConfig{Dir: s.Config.Build.DistDir},
+		})
+	}
+
 	err := s.renderVars()
 	if err != nil {
 		return err
