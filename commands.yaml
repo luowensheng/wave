@@ -1,0 +1,52 @@
+name: Commands
+
+commands:
+
+  build:
+    args:
+      os:
+        type: string
+      arch:
+        type: string
+      output:
+        type: string
+
+    script: |
+        set -e
+        export CC="{{if and (eq .os `windows`) (eq .arch `amd64`)}}zig cc -target x86_64-windows-gnu{{else if and (eq .os `linux`) (eq .arch `amd64`)}}zig cc -target x86_64-linux-gnu{{else if and (eq .os `linux`) (eq .arch `arm64`)}}zig cc -target aarch64-linux-gnu{{else if and (eq .os `darwin`) (eq .arch `arm64`)}}clang{{end}}"
+
+
+        export GOOS="{{.os}}"
+        export GOARCH="{{.arch}}"
+        export CGO_ENABLED="1"
+
+        go build -o "{{.output}}"
+
+  build_windows:
+    script: |
+      {{Run}} build --os windows --arch amd64 --output "./builds/windows/easyserver"
+
+  build_mac:
+    script: |
+      {{Run}} build --os darwin --arch arm64 --output "./builds/mac/easyserver"
+      bman remove easyserver
+      bman add "./builds/mac/easyserver"
+
+  build_linux:
+    script: |
+      {{Run}} build --os linux --arch amd64 --output "./builds/linux/easyserver"
+
+  build_linux-arm:
+    script: |
+      {{Run}} build --os linux --arch arm64 --output "./builds/linux-arm/easyserver"
+
+  build_all:
+    script: |
+      {{Run}} build_windows
+      {{Run}} build_mac
+      {{Run}} build_linux
+      {{Run}} build_linux-arm
+
+  merge:
+    script: |
+      functool merge --ignore "*test*,*sample*,*dependencies*,*pkg*,*builds*" "*.go" merge.txt "// {filepath}"

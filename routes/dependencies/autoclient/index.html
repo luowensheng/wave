@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Tester</title>
+    <script src="./vue.global.min.js"></script>
+    
+    <script src="./axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 32px 64px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 0;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .controls {
+            padding: 40px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: 1fr 3fr 1fr;
+            gap: 24px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            letter-spacing: 0.025em;
+        }
+
+        select,
+        input:not([type="checkbox"]):not([type="file"]) {
+            padding: 16px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            font-size: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        select:focus,
+        input:not([type="checkbox"]):not([type="file"]):focus,
+        textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1), 0 4px 12px rgba(79, 70, 229, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 700px;
+        }
+
+        .inputs-section,
+        .outputs-section {
+            padding: 40px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }
+
+        .inputs-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .outputs-section {
+            background: white;
+        }
+
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #1f2937;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-icon {
+            width: 28px;
+            height: 28px;
+        }
+
+        .input-field {
+            margin-bottom: 32px;
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        /* .input-field:hover {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        } */
+
+        .input-field label {
+            color: #4f46e5;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .description {
+            font-style: italic;
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            max-height: 400px;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        textarea::placeholder {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        /* File input styling */
+        input[type="file"] {
+            padding: 16px;
+            border: 2px dashed #d1d5db;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            border-color: #4f46e5;
+            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+        }
+
+        /* Checkbox styling */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
+            position: relative;
+            appearance: none;
+            transition: all 0.3s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Media preview styling */
+        .media-preview {
+            margin-top: 16px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .media-preview img,
+        .media-preview video,
+        .media-preview audio {
+            max-width: 100%;
+            border-radius: 12px;
+        }
+
+        .media-preview video {
+            max-height: 300px;
+        }
+
+        .run-btn {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+            margin-bottom: 32px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .run-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .run-btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        .run-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(79, 70, 229, 0.4);
+        }
+
+        .run-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .output-field {
+            margin-bottom: 32px;
+            border-radius: 20px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .output-field:hover {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .output-field-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 20px 24px;
+            font-weight: 700;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 1.1rem;
+        }
+
+        .output-field-content {
+            padding: 24px;
+            background: white;
+        }
+
+        .output-content {
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error {
+            color: #dc2626;
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border: 1px solid #fecaca;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);
+        }
+
+        .success {
+            color: #059669;
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 1px solid #a7f3d0;
+            padding: 20px;
+            border-radius: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.1);
+        }
+
+        .api-info {
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 32px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .api-info summary {
+            font-weight: 700;
+            cursor: pointer;
+            padding: 12px 0;
+            color: #4f46e5;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .api-info summary::marker {
+            content: '';
+        }
+
+        .api-info summary::before {
+            content: '📋';
+            margin-right: 8px;
+        }
+
+        .json-display {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            color: #e5e7eb;
+            padding: 24px;
+            border-radius: 16px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin-top: 16px;
+            border: 1px solid #374151;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .elapsed-time {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            display: inline-block;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .no-selection {
+            padding: 60px 40px;
+            text-align: center;
+            color: #6b7280;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            border-radius: 20px;
+            margin: 40px;
+        }
+
+        .no-selection h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .no-selection p {
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .controls-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .container {
+                margin: 10px;
+                border-radius: 16px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .inputs-section,
+            .outputs-section {
+                padding: 24px;
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #3b37d1, #6b21b8);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="header">
+                <h1>🚀 API Tester</h1>
+            </div>
+
+            <div class="controls">
+                <div class="controls-row">
+                    <div class="form-group">
+                        <label>API Type</label>
+                        <select v-model="selectedType" @change="onTypeChange">
+                            <option value="">Select Type</option>
+                            <option value="Tools">Tools</option>
+                            <option value="Workflows">Workflows</option>
+                            <option value="Prompts">Prompts</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>API Selection</label>
+                        <select v-model="selectedApi" :disabled="!selectedType">
+                            <option value="">Select API</option>
+                            <option v-for="api in availableApis" :key="api.id" :value="api.id">
+                                {{ api.id }} :: {{ api.description }}
+                            </option>
+                        </select>
+                    </div>
+                    <div v-if="selectedType == 'Prompts'" class="form-group">
+                        <label>Model</label>
+                        <select v-model="selectedModel">
+                            <option v-for="model in models" :key="model" :value="model">
+                                {{ model }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <button v-if="selectedType && selectedApi" class="run-btn" @click="runApi" :disabled="loading">
+                    <span v-if="loading" class="loading">
+                        <div class="spinner"></div>
+                        Processing...
+                    </span>
+                    <span v-else>🚀 Run API</span>
+                </button>
+            </div>
+
+            <div class="main-content" v-if="currentConfig">
+                <div class="inputs-section">
+                    <h2 class="section-title">
+                        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                        </svg>
+                        Inputs - {{ selectedType }}
+                    </h2>
+
+                    <div v-for="input in currentConfig.inputs" :key="input.name" class="input-field">
+                        <label>{{ input.label }}</label>
+
+                        <!-- Textarea for long text -->
+                        <textarea
+                            v-if="input.type === 'json' || input.type === 'text' || input.type === 'string' || input.type === 'url'"
+                            v-model="inputValues[input.name]" :placeholder="input.description" rows="6"></textarea>
+
+                        <!-- Number input -->
+                        <input v-else-if="input.type === 'number' || input.type === 'int' || input.type === 'float'"
+                            v-model.number="inputValues[input.name]" :placeholder="input.description" type="number">
+
+                        <!-- Checkbox -->
+                        <div v-else-if="input.type === 'bool' || input.type === 'boolean' || input.type === 'toggle'"
+                            class="checkbox-wrapper">
+                            <input v-model="inputValues[input.name]" type="checkbox" :id="input.name">
+                            <label :for="input.name" style="margin: 0; font-weight: 500; color: #6b7280;">Enable {{
+                                input.label }}</label>
+                        </div>
+
+                        <!-- Select dropdown -->
+                        <select v-else-if="input.type === 'select'" v-model="inputValues[input.name]">
+                            <option v-for="choice in input.choices" :key="choice" :value="choice">
+                                {{ choice }}
+                            </option>
+                        </select>
+
+                        <!-- File input -->
+                        <div
+                            v-else-if="input.type === 'file' || input.type === 'image' || input.type === 'audio' || input.type === 'video'">
+                            <input @change="handleFileInput($event, input.name)" type="file"
+                                :accept="getFileAccept(input.type)" />
+
+                            <!-- Media preview -->
+                            <div v-if="inputValues[input.name]" class="media-preview">
+                                <img v-if="input.type === 'image' && inputValues[input.name]"
+                                    :src="inputValues[input.name]" alt="Preview"></img>
+
+                                <video v-else-if="input.type === 'video' && inputValues[input.name]"
+                                    :src="inputValues[input.name]" controls></video>
+
+                                <audio v-else-if="input.type === 'audio' && inputValues[input.name]"
+                                    :src="inputValues[input.name]" controls></audio>
+
+                                <div v-else-if="input.type === 'file'"
+                                    style="padding: 12px; background: #f3f4f6; border-radius: 8px; font-family: monospace;">
+                                    File uploaded successfully
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Default text input -->
+                        <input v-else v-model="inputValues[input.name]" :placeholder="input.description" type="text">
+
+                        <div class="description">{{ input.description }}</div>
+                    </div>
+
+                    <details class="api-info">
+                        <summary>API Information</summary>
+                        <pre class="json-display">{{ JSON.stringify(apiExample, null, 2) }}</pre>
+                    </details>
+                </div>
+
+                <div class="outputs-section">
+                    <h2 class="section-title">
+                        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                            <path fill-rule="evenodd"
+                                d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        Outputs - {{ selectedType }}
+                    </h2>
+
+                    <div v-if="elapsedTime" class="elapsed-time">
+                        ⏱️ {{ elapsedTime }}
+                    </div>
+
+                    <div v-if="apiError" class="error">
+                        ❌ {{ apiError }}
+                    </div>
+
+                    <div v-for="output in currentConfig.outputs" :key="output.name" class="output-field">
+                        <div class="output-field-header">{{ output.label }}</div>
+
+                        <div class="output-field-content">
+                            <!-- Text/JSON output -->
+                            <div v-if="output.type === 'text' || output.type === 'string' || output.type === 'json'"
+                                class="output-content">{{ formatOutput(outputValues[output.name]) }}</div>
+
+                            <!-- Image output -->
+                            <img v-else-if="output.type === 'image' && outputValues[output.name]"
+                                :src="outputValues[output.name]"
+                                style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
+                            </img>
+
+                            <!-- Audio output -->
+                            <audio v-else-if="output.type === 'audio' && outputValues[output.name]"
+                                :src="outputValues[output.name]" controls style="width: 100%;">
+                            </audio>
+
+                            <!-- Video output -->
+                            <video v-else-if="output.type === 'video' && outputValues[output.name]"
+                                :src="outputValues[output.name]" controls
+                                style="width: 100%; max-height: 400px; border-radius: 12px;"></video>
+
+                            <!-- URL output with media detection -->
+                            <div v-else-if="output.type === 'url' && outputValues[output.name]">
+                                <img v-if="isImageUrl(outputValues[output.name])" :src="outputValues[output.name]"
+                                    style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
+                                </img>
+                                <video v-else-if="isVideoUrl(outputValues[output.name])"
+                                    :src="outputValues[output.name]" controls
+                                    style="width: 100%; border-radius: 12px;">
+                                </video>
+
+                                <audio v-else-if="isAudioUrl(outputValues[output.name])"
+                                    :src="outputValues[output.name]" controls style="width: 100%;">
+                                </audio>
+
+                                <a v-else :href="outputValues[output.name]" target="_blank"
+                                    style="color: #4f46e5; font-weight: 600;">.{{outputValues[output.name] }}</a>
+                            </div>
+
+                            <!-- HTML output -->
+                            <div v-else-if="output.type === 'html' && outputValues[output.name]"
+                                v-html="outputValues[output.name]">
+                            </div>
+
+                            <div v-else-if="output.type === 'file' && outputValues[output.name]">
+                                <a :href="outputValues[output.name].dataUrl"
+                                    :download="output.name + '_file'">download</a>
+                            </div>
+
+                            <!-- Default output -->
+                            <div v-else class="output-content">{{ outputValues[output.name] || 'No data' }}</div>
+
+                            <div class="description">{{ output.description }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-else-if="!selectedApi" class="no-selection">
+                <h3>👆 Welcome to API Tester</h3>
+                <p>Please select an API type and API to get started</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, watch } = Vue;
+        const AIMANAGER_URL = '';
+
+        const getTabFromUrl = () => {
+            const tabs = [
+                "chatbot",
+                "fine-tuning",
+                "upload",
+                "knowledge",
+                "categories",
+            ]
+            const urlParams = new URLSearchParams(window.location.search);
+            const type = urlParams.get('type') || '';
+            let selection;
+            if (type) {
+                selection = urlParams.get('selection') || ''
+            }
+
+            return { type, selection }
+        };
+
+        /**
+        * @param {string} type
+        * @param {string} selection
+        */
+        function setActiveTab(type, selection) {
+            const url = new URL(window.location);
+            if (type) {
+                url.searchParams.set('type', type);
+                if (selection) {
+                    url.searchParams.set('selection', selection);
+                }
+            }
+            window.history.pushState({}, '', url);
+        }
+        createApp({
+            setup() {
+                const pageContext = getTabFromUrl();
+                const selectedType = ref(pageContext.type);
+                const selectedApi = ref(pageContext.selection);
+                const selectedModel = ref('4o-mini');
+                const loading = ref(false);
+                const elapsedTime = ref('');
+                const apiError = ref('');
+                const models = ref('');
+
+
+
+                // Fetch models from API
+                async function fetchModels() {
+                    try {
+                        const response = await axios.get(`${AIMANAGER_URL}/api/assets/models`);
+                        const data = response.data.data || [];
+                        models.value = data.map(item => item.id);
+                        if (models.value.length > 0) {
+                            selectedModel.value = models.value.includes('4o-mini') ? '4o-mini' : models.value[0];
+                        }
+                    } catch (error) {
+                        console.error('Error fetching models:', error);
+                        // Fallback models
+                        models.value = ['4o-mini', 'gpt-4', 'claude-3', 'gemma3'];
+                    }
+                }
+
+                // Fetch APIs by type
+                async function fetchApis(type) {
+                    let url;
+                    switch (type) {
+                        case 'Tools':
+                            url = `${AIMANAGER_URL}/api/assets/tools/`;
+                            break;
+                        case 'Workflows':
+                            url = `${AIMANAGER_URL}/api/assets/workflows/`;
+                            break;
+                        case 'Prompts':
+                            url = `${AIMANAGER_URL}/api/assets/prompts/`;
+                            break;
+                        default:
+                            return {};
+                    }
+
+                    try {
+                        const response = await axios.get(url);
+                        return response.data.data || [];
+                    } catch (error) {
+                        console.error(`Error fetching ${type} APIs:`, error);
+                        return [];
+                    }
+                }
+
+                // Process API data similar to main.py
+                function processApiData(apis, dataStore, endpointPrefix) {
+                    const processedData = {};
+
+                    apis.forEach(api => {
+                        if (!api.id) {
+                            console.warn('API item missing id field:', api);
+                            return;
+                        }
+
+                        try {
+                            const inputData = api.inputs || api.input || {};
+                            const outputData = api.outputs || api.output || {};
+
+                            const inputs = [];
+                            if (inputData) {
+                                Object.entries(inputData).forEach(([k, v]) => {
+                                    if (typeof v === 'object' && v !== null) {
+                                        inputs.push({
+                                            name: k,
+                                            type: v.display_type || 'text',
+                                            label: v.name || k,
+                                            default: v.default,
+                                            choices: v.choices,
+                                            description: v.description || v.name || k
+                                        });
+                                    }
+                                });
+                            }
+
+                            const outputs = [];
+                            if (outputData) {
+                                Object.entries(outputData).forEach(([k, v]) => {
+                                    if (typeof v === 'object' && v !== null) {
+                                        outputs.push({
+                                            name: k,
+                                            type: v.display_type || 'text',
+                                            label: v.name || k,
+                                            extension: v.extension,
+                                            description: v.description || v.name || k
+                                        });
+                                    }
+                                });
+                            }
+                            if (endpointPrefix === 'prompt') {
+                                outputs.push({
+                                    name: 'text',
+                                    type: 'text',
+                                    label: 'Output',
+                                    extension: null,
+                                    description: 'Output'
+                                });
+                            }
+
+                            processedData[api.id] = {
+                                endpoint: `${AIMANAGER_URL}/${endpointPrefix}`,
+                                inputs: inputs,
+                                outputs: outputs,
+                                description: api.description || 'No description'
+                            };
+
+                        } catch (error) {
+                            console.error(`Error processing API ${api.id}:`, error);
+                        }
+                    });
+
+                    return processedData;
+                }
+
+                // Load all API data
+                async function loadApiData() {
+                    try {
+                        loading.value = true;
+
+                        // Fetch all API types
+                        const [toolsApis, workflowsApis, promptsApis] = await Promise.all([
+                            fetchApis('Tools'),
+                            fetchApis('Workflows'),
+                            fetchApis('Prompts')
+                        ]);
+
+                        // Process the data
+                        apiData.value = processApiData(toolsApis, apiData, 'api');
+                        workflowData.value = processApiData(workflowsApis, workflowData, 'workflow');
+                        promptData.value = processApiData(promptsApis, promptData, 'prompt');
+
+                        console.log('Loaded API data:', {
+                            tools: Object.keys(apiData.value).length,
+                            workflows: Object.keys(workflowData.value).length,
+                            prompts: Object.keys(promptData.value).length
+                        });
+
+                    } catch (error) {
+                        console.error('Error loading API data:', error);
+                        apiError.value = 'Failed to load API data. Please check if the AI Manager is running.';
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                // Initialize data on mount
+                fetchModels();
+                loadApiData();
+
+                // Configuration
+
+                // Reactive data stores
+                const apiData = ref({});
+                const workflowData = ref({});
+                const promptData = ref({});
+
+                const inputValues = reactive({});
+                const outputValues = reactive({});
+
+                const availableApis = computed(() => {
+                    let dataSource;
+                    switch (selectedType.value) {
+                        case 'Tools':
+                            dataSource = apiData.value;
+                            break;
+                        case 'Workflows':
+                            dataSource = workflowData.value;
+                            break;
+                        case 'Prompts':
+                            dataSource = promptData.value;
+                            break;
+                        default:
+                            return [];
+                    }
+
+                    return Object.entries(dataSource).map(([key, value]) => ({
+                        id: key,
+                        description: value.description
+                    }));
+                });
+                const currentConfig = computed(() => {
+                    if (!selectedApi.value || !selectedType.value) return null;
+
+                    let dataSource;
+                    switch (selectedType.value) {
+                        case 'Tools':
+                            dataSource = apiData.value;
+                            break;
+                        case 'Workflows':
+                            dataSource = workflowData.value;
+                            break;
+                        case 'Prompts':
+                            dataSource = promptData.value;
+                            break;
+                        default:
+                            return null;
+                    }
+
+
+                    setActiveTab(selectedType.value, selectedApi.value)
+
+
+                    return dataSource[selectedApi.value] || null;
+                });
+
+                const apiExample = computed(() => {
+                    if (!currentConfig.value) return {};
+
+                    const data = {};
+                    currentConfig.value.inputs.forEach(input => {
+                        data[input.name] = `<${input.description}:${input.type}>`;
+                    });
+
+                    if (selectedType.value === 'Prompts') {
+                        data.model_id = `<Model to select. One of ${JSON.stringify(models.value)}>`;
+                    }
+
+                    const baseUrl = AIMANAGER_URL.replace('localhost', window.location.hostname);
+                    let endpoint;
+                    const outputData = Object.fromEntries(
+                        currentConfig.value.outputs.map(output => [
+                            output.name,
+                            `<${output.description}:${output.type}>`
+                        ])
+                    )
+                    switch (selectedType.value) {
+                        case 'Tools':
+                            endpoint = '/api/tools';
+                            break;
+                        case 'Workflows':
+                            endpoint = '/api/workflows';
+                            break;
+                        case 'Prompts':
+                            endpoint = '/api/prompt';
+                            break;
+                        default:
+                            throw new Error(`Invalid API Type: ${selectedType.value}`);
+                    }
+
+                    return {
+                        url: `${baseUrl}${endpoint}`,
+                        method: 'POST',
+                        request: {
+                            id: selectedApi.value,
+                            data: data,
+                            ...(selectedType.value === 'Prompts' ? { model_id: selectedModel.value } : {})
+                        },
+                        response: {
+                            data: outputData,
+                            success: '<Success: bool>',
+                            error: '<Error: (Optional) string>'
+                        }
+                    };
+                });
+
+                // Initialize input values when config changes
+
+
+                watch(currentConfig, (newConfig) => {
+                    if (newConfig) {
+                        // Clear previous values
+                        Object.keys(inputValues).forEach(key => delete inputValues[key]);
+                        Object.keys(outputValues).forEach(key => delete outputValues[key]);
+
+                        // Set default values
+                        newConfig.inputs.forEach(input => {
+                            inputValues[input.name] = input.default || '';
+                        });
+
+                        // Clear outputs
+                        newConfig.outputs.forEach(output => {
+                            outputValues[output.name] = null;
+                        });
+
+                        apiError.value = '';
+                        elapsedTime.value = '';
+                    }
+                });
+
+                function onTypeChange() {
+                    selectedApi.value = '';
+                }
+
+                function getFileAccept(type) {
+                    switch (type) {
+                        case 'image': return 'image/*';
+                        case 'audio': return 'audio/*';
+                        case 'video': return 'video/*';
+                        case 'file': return '*/*';
+                        default: return '*/*';
+                    }
+                }
+
+                function handleFileInput(event, fieldName) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            // Convert to data URI format expected by your API
+                            const dataUri = e.target.result;
+                            inputValues[fieldName] = dataUri;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+
+                function loadBase64Image(base64Data) {
+                    if (base64Data.startsWith('data:')) {
+                        return base64Data;
+                    }
+                    return `data:image/png;base64,${base64Data}`;
+                }
+
+                function loadBase64Video(base64String) {
+                    try {
+                        if (base64String.startsWith('data:')) {
+                            return base64String;
+                        }
+
+                        // Clean the base64 string
+                        const cleanBase64 = base64String.replace(/\s/g, '');
+
+                        // Create blob URL for video
+                        const byteCharacters = atob(cleanBase64);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'video/mp4' });
+
+                        return URL.createObjectURL(blob);
+                    } catch (error) {
+                        console.error('Error loading base64 video:', error);
+                        return null;
+                    }
+                }
+
+                function loadBase64Audio(base64String) {
+                    try {
+                        if (base64String.startsWith('data:')) {
+                            return base64String;
+                        }
+                        return `data:audio/mp3;base64,${base64String}`;
+                    } catch (error) {
+                        console.error('Error loading base64 audio:', error);
+                        return null;
+                    }
+                }
+
+                function loadBase64File(base64String, filename, mimeType = 'application/octet-stream') {
+                    try {
+                        // Handle different base64 string formats
+                        let dataUrl;
+                        if (base64String.startsWith('data:')) {
+                            dataUrl = base64String;
+                        } else {
+                            dataUrl = `data:${mimeType};base64,${base64String}`;
+                        }
+                        return { dataUrl, filename }
+
+                        return dataUrl;
+                    } catch (error) {
+                        console.error('Error creating downloadable file:', error);
+                        return null;
+                    }
+                }
+
+                // Process output values with loaders
+                function processOutputValue(value, outputConfig) {
+                    if (!value) return value;
+
+                    switch (outputConfig.type) {
+                        case 'image':
+                            return loadBase64Image(value);
+                        case 'video':
+                            return loadBase64Video(value);
+                        case 'audio':
+                            return loadBase64Audio(value);
+                        case 'json':
+                            return typeof value === 'object' ? value : JSON.parse(value);
+                        case 'file':
+                            return loadBase64File(value)
+                        default:
+                            return value;
+                    }
+                }
+
+                function formatOutput(value) {
+                    if (value === null || value === undefined) return 'No data';
+                    if (typeof value === 'object') return JSON.stringify(value, null, 2);
+                    return String(value);
+                }
+
+                /**
+                * @param {string} url
+                */
+                function isImageUrl(url) {
+                    return /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(url.split("?")[0]);
+                }
+
+                function isVideoUrl(url) {
+                    return /\.(mp4|webm|ogg|avi|mov)$/i.test(url.split("?")[0]);
+                }
+
+                function isAudioUrl(url) {
+                    return /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(url.split("?")[0]);
+                }
+
+                async function runApi() {
+                    if (!currentConfig.value) return;
+
+                    loading.value = true;
+                    apiError.value = '';
+                    const startTime = Date.now();
+
+                    try {
+                        // Prepare request data
+                        const requestData = {
+                            id: selectedApi.value,
+                            data: { ...inputValues }
+                        };
+
+                        if (selectedType.value === 'Prompts') {
+                            requestData.model_id = selectedModel.value;
+                        }
+
+                        // Determine API endpoint
+                        let endpoint;
+                        switch (selectedType.value) {
+                            case 'Tools':
+                                endpoint = `${AIMANAGER_URL}/api/tools`;
+                                break;
+                            case 'Workflows':
+                                endpoint = `${AIMANAGER_URL}/api/workflows`;
+                                break;
+                            case 'Prompts':
+                                endpoint = `${AIMANAGER_URL}/api/prompt`;
+                                break;
+                            default:
+                                throw new Error(`Invalid API type: ${selectedType.value}`);
+                        }
+
+                        console.log('Making API call to:', endpoint);
+                        console.log('Request payload:', requestData);
+
+                        const response = await axios.post(endpoint, requestData);
+                        const data = response.data;
+
+                        console.log('Response:', data);
+
+                        if (response.status === 200 && data.success) {
+                            // Process outputs with appropriate loaders
+                            const responseData = data.data || {};
+
+                            // Clear previous outputs
+                            Object.keys(outputValues).forEach(key => {
+                                outputValues[key] = null;
+                            });
+
+                            // Process each output
+                            currentConfig.value.outputs.forEach(outputConfig => {
+                                let value = responseData[outputConfig.name];
+
+                                // Handle key mapping fallback (similar to main.py)
+                                if (value === undefined) {
+                                    const alternatives = ['data', 'result', 'output', 'value', 'answer'];
+                                    for (const altKey of alternatives) {
+                                        if (responseData[altKey] !== undefined) {
+                                            value = responseData[altKey];
+                                            console.log(`Found value using alternative key '${altKey}':`, value);
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Process the value with appropriate loader
+                                if (value !== undefined) {
+                                    try {
+                                        outputValues[outputConfig.name] = processOutputValue(value, outputConfig);
+                                    } catch (error) {
+                                        console.error(`Error processing output '${outputConfig.name}':`, error);
+                                        outputValues[outputConfig.name] = `Loader Error: ${error.message}`;
+                                    }
+                                } else {
+                                    console.warn(`No value found for expected key '${outputConfig.name}'`);
+                                    console.log('Available keys in API response:', Object.keys(responseData));
+                                }
+                            });
+
+                        } else {
+                            const errorMsg = data.error || `Unknown error - Status: ${response.status}`;
+                            apiError.value = errorMsg;
+                            console.error('API call failed:', errorMsg);
+                        }
+
+                    } catch (error) {
+                        console.error('API Error:', error);
+                        if (error.response) {
+                            // Server responded with error status
+                            const errorMsg = error.response.data?.error ||
+                                error.response.data?.message ||
+                                `HTTP ${error.response.status}: ${error.response.statusText}`;
+                            apiError.value = errorMsg;
+                        } else if (error.request) {
+                            // Network error
+                            apiError.value = 'Network error: Could not connect to AI Manager. Please check if it\'s running.';
+                        } else {
+                            // Other error
+                            apiError.value = error.message || 'An unexpected error occurred';
+                        }
+                    } finally {
+                        loading.value = false;
+                        const elapsed = Date.now() - startTime;
+                        elapsedTime.value = `${(elapsed / 1000).toFixed(3)} seconds`;
+                    }
+                }
+
+                return {
+                    selectedType,
+                    selectedApi,
+                    selectedModel,
+                    loading,
+                    elapsedTime,
+                    apiError,
+                    models,
+                    availableApis,
+                    currentConfig,
+                    apiExample,
+                    inputValues,
+                    outputValues,
+                    onTypeChange,
+                    getFileAccept,
+                    handleFileInput,
+                    formatOutput,
+                    isImageUrl,
+                    isVideoUrl,
+                    isAudioUrl,
+                    runApi
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>
