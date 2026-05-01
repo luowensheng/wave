@@ -2,7 +2,7 @@ package routes
 
 import (
 	"easyserver/infra/logger"
-	"easyserver/process"
+	"easyserver/infra/process"
 	"fmt"
 	"net/http"
 	"os"

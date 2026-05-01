@@ -2,8 +2,8 @@ package storage
 
 import (
 	"database/sql"
-	"easyserver/auth"
-	"easyserver/contentloader"
+	"easyserver/orchestrator/features/auth"
+	"easyserver/io/http/contentloader"
 	"easyserver/infra/common"
 	"fmt"
 	"os"

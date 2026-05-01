@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
-	"easyserver/render"
+	"easyserver/infra/render"
 	"encoding/json"
 	"fmt"
 	"io"

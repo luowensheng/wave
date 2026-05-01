@@ -1,8 +1,8 @@
 package servers
 
 import (
-	"easyserver/render"
-	"easyserver/routes"
+	"easyserver/infra/render"
+	"easyserver/usecases/routes"
 	"fmt"
 	"net/http"
 )

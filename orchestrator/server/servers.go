@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"easyserver/auth"
-	"easyserver/bundler"
-	"easyserver/ipfilter"
+	"easyserver/orchestrator/features/auth"
+	"easyserver/infra/bundler"
+	"easyserver/infra/ipfilter"
 	"easyserver/infra/net"
 	"easyserver/infra/common"
-	"easyserver/routes"
-	"easyserver/storage"
+	"easyserver/usecases/routes"
+	"easyserver/orchestrator/features/storage"
 
 	"log"
 

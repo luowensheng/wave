@@ -1,26 +1,19 @@
-// auth_login_config.go
+// auth_logout_config.go
 package routes
 
 import (
-	"easyserver/auth"
-	"easyserver/render"
+	"easyserver/orchestrator/features/auth"
 	"encoding/json"
+	"html/template"
 	"net/http"
-	"strings"
-	"text/template"
 
 	"log"
 )
 
-type AuthLoginConfig struct {
+type AuthLogoutConfig struct {
 	For               string `yaml:"for,omitempty"`
 	RedirectOnSuccess string `yaml:"redirect_on_success,omitempty"`
 	RedirectOnFailure string `yaml:"redirect_on_failure,omitempty"`
-
-	UsernameField        string `yaml:"username_field,omitempty"`
-	PasswordField        string `yaml:"password_field,omitempty"`
-	ConfirmPasswordField string `yaml:"confirm_password_field,omitempty"`
-	EmailField           string `yaml:"email_field,omitempty"`
 
 	// Error handling configuration
 	ErrorTemplate     string `yaml:"error_template,omitempty"`      // Path to error template file
@@ -33,33 +26,27 @@ type AuthLoginConfig struct {
 	CookieSameSite string `yaml:"cookie_same_site,omitempty"` // "Strict", "Lax", "None"
 }
 
-type ErrorContext struct {
-	Success  bool              `json:"success"`
-	Error    string            `json:"error"`
-	Code     string            `json:"code"`
-	Message  string            `json:"message"`
-	Details  map[string]string `json:"details"`
-	Username string            `json:"username,omitempty"`
-	Email    string            `json:"email,omitempty"`
-	FormData map[string]string `json:"form_data,omitempty"`
-	Request  *http.Request     `json:"-"`
+type LogoutErrorContext struct {
+	Success bool          `json:"success"`
+	Error   string        `json:"error"`
+	Code    string        `json:"code"`
+	Message string        `json:"message"`
+	Request *http.Request `json:"-"`
 }
 
 // CreateRoute implements servers.RouteConfig.
-func (c *AuthLoginConfig) CreateRoute(method, path string, data map[string]string) (http.HandlerFunc, error) {
+func (c *AuthLogoutConfig) CreateRoute(method, path string, data map[string]string) (http.HandlerFunc, error) {
 
 	// Pre-compile error template if provided
 	var errorTemplate *template.Template
 	var templateErr error
 
 	if c.ErrorTemplate != "" {
-		// Load template from file
 		errorTemplate, templateErr = template.ParseFiles(c.ErrorTemplate)
 		if templateErr != nil {
 			log.Printf("[WARN] Failed to parse error template file %s: %v", c.ErrorTemplate, templateErr)
 		}
 	} else if c.ErrorTemplateStr != "" {
-		// Parse inline template string
 		errorTemplate, templateErr = template.New("error").Parse(c.ErrorTemplateStr)
 		if templateErr != nil {
 			log.Printf("[WARN] Failed to parse error template string: %v", templateErr)
@@ -67,44 +54,25 @@ func (c *AuthLoginConfig) CreateRoute(method, path string, data map[string]strin
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Parse form data
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Failed to parse form", http.StatusBadRequest)
-			return
-		}
-
-		// Get form fields
-		usernameField := valueOrDefault(c.UsernameField, "username")
-		passwordField := valueOrDefault(c.PasswordField, "password")
-
-		username := r.Form.Get(usernameField)
-		password := r.Form.Get(passwordField)
-
-		// Create login request
-		loginReq := auth.LoginForm{
-			Username: username,
-			Password: password,
-		}
-
-		// Perform login using auth manager
-		response := auth.Login(loginReq, c.For)
+		// Perform logout using auth manager
+		response := auth.Logout(r, c.For)
 
 		if !response.Success {
-			log.Printf("[LOGIN ERROR]: %s (code: %s)", response.Error, response.Code)
-			c.handleError(w, r, response, username, errorTemplate)
+			log.Printf("[LOGOUT ERROR]: %s (code: %s)", response.Error, response.Code)
+			c.handleError(w, r, response, errorTemplate)
 			return
 		}
 
-		log.Printf("[LOGIN SUCCESS]: %s", response.Message)
+		log.Printf("[LOGOUT SUCCESS]: %s", response.Message)
 
-		// Handle successful login
+		// Handle successful logout
 		switch response.Location {
 		case "cookie":
-			c.setCookie(w, r, response)
+			c.clearCookie(w, r, response)
 			c.redirectOnSuccess(w, r, response)
 
 		case "header":
-			w.Header().Set(response.Name, response.Value)
+			w.Header().Set(response.Name, "")
 			c.sendJSON(w, response)
 
 		default:
@@ -113,29 +81,23 @@ func (c *AuthLoginConfig) CreateRoute(method, path string, data map[string]strin
 	}, nil
 }
 
-func (c *AuthLoginConfig) handleError(w http.ResponseWriter, r *http.Request, response *auth.LoginResponse, username string, errorTemplate *template.Template) {
+func (c *AuthLogoutConfig) handleError(w http.ResponseWriter, r *http.Request, response *auth.LogoutResponse, errorTemplate *template.Template) {
 	// Build error context
-	ctx := ErrorContext{
-		Success:  false,
-		Error:    response.Error,
-		Code:     response.Code,
-		Message:  response.Message,
-		Details:  response.Details,
-		Username: username,
-		FormData: map[string]string{
-			"username": username,
-		},
+	ctx := LogoutErrorContext{
+		Success: false,
+		Error:   response.Error,
+		Code:    response.Code,
+		Message: response.Message,
 		Request: r,
 	}
 
 	// Determine response type
 	responseType := c.ErrorResponseType
 	if responseType == "" {
-		// Auto-detect based on request
 		if isBrowserRequest(r) {
-			responseType = "redirect" // Default for browsers
+			responseType = "redirect"
 		} else {
-			responseType = "json" // Default for API clients
+			responseType = "json"
 		}
 	}
 
@@ -154,46 +116,28 @@ func (c *AuthLoginConfig) handleError(w http.ResponseWriter, r *http.Request, re
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
 			}
 		} else {
-			// Fallback to basic HTML
 			c.renderBasicErrorHTML(w, ctx)
 		}
 
 	case "redirect":
 		fallthrough
 	default:
-		// Redirect with error context
 		redirectURL := c.ErrorRedirect
 		if redirectURL == "" {
-			buffer, err := render.Render(c.RedirectOnFailure, ctx, template.FuncMap{
-				"getUser": func() *auth.PublicUser {
-					value := r.Context().Value(auth.UserContextKey)
-					user, ok := value.(*auth.PublicUser)
-					// common.PrintJSON(common.Object{
-					// 	"auth_user": user,
-					// })
-					if !ok {
-						panic("No user")
-					}
-					return user
-				},
-			})
-			if err == nil {
-				redirectURL = buffer.String()
-			}
-
+			redirectURL = c.RedirectOnFailure
 		}
 		if redirectURL == "" {
-			redirectURL = r.Referer() // Fallback to referer
+			redirectURL = r.Referer()
 		}
 		if redirectURL == "" {
-			redirectURL = "/login" // Last resort fallback
+			redirectURL = "/"
 		}
 
 		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 	}
 }
 
-func (c *AuthLoginConfig) setCookie(w http.ResponseWriter, r *http.Request, response *auth.LoginResponse) {
+func (c *AuthLogoutConfig) clearCookie(w http.ResponseWriter, r *http.Request, response *auth.LogoutResponse) {
 	// Determine cookie security settings
 	secure := isSecureRequest(r)
 	if c.CookieSecure != nil {
@@ -204,18 +148,18 @@ func (c *AuthLoginConfig) setCookie(w http.ResponseWriter, r *http.Request, resp
 
 	cookie := &http.Cookie{
 		Name:     response.Name,
-		Value:    response.Value,
+		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: sameSite,
-		MaxAge:   response.TokenDuration,
+		MaxAge:   -1, // Delete cookie
 	}
 
 	http.SetCookie(w, cookie)
 }
 
-func (c *AuthLoginConfig) redirectOnSuccess(w http.ResponseWriter, r *http.Request, response *auth.LoginResponse) {
+func (c *AuthLogoutConfig) redirectOnSuccess(w http.ResponseWriter, r *http.Request, response *auth.LogoutResponse) {
 	redirectURL := c.RedirectOnSuccess
 	if redirectURL == "" && response.RedirectTo != "" {
 		redirectURL = response.RedirectTo
@@ -224,16 +168,16 @@ func (c *AuthLoginConfig) redirectOnSuccess(w http.ResponseWriter, r *http.Reque
 		redirectURL = "/"
 	}
 
-	log.Printf("[LOGIN] Redirecting to: %s", redirectURL)
+	log.Printf("[LOGOUT] Redirecting to: %s", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
-func (c *AuthLoginConfig) sendJSON(w http.ResponseWriter, response *auth.LoginResponse) {
+func (c *AuthLogoutConfig) sendJSON(w http.ResponseWriter, response *auth.LogoutResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (c *AuthLoginConfig) renderBasicErrorHTML(w http.ResponseWriter, ctx ErrorContext) {
+func (c *AuthLogoutConfig) renderBasicErrorHTML(w http.ResponseWriter, ctx LogoutErrorContext) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusUnauthorized)
 
@@ -241,7 +185,7 @@ func (c *AuthLoginConfig) renderBasicErrorHTML(w http.ResponseWriter, ctx ErrorC
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Login Error</title>
+    <title>Logout Error</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
         .error { background: #fee; border: 1px solid #fcc; border-radius: 4px; padding: 15px; margin: 20px 0; }
@@ -255,7 +199,7 @@ func (c *AuthLoginConfig) renderBasicErrorHTML(w http.ResponseWriter, ctx ErrorC
 </head>
 <body>
     <div class="error">
-        <div class="error-title">Login Failed</div>
+        <div class="error-title">Logout Failed</div>
         <div class="error-message">` + template.HTMLEscapeString(ctx.Error) + `</div>
         <div class="error-code">Error Code: ` + template.HTMLEscapeString(ctx.Code) + `</div>
     </div>
@@ -266,47 +210,4 @@ func (c *AuthLoginConfig) renderBasicErrorHTML(w http.ResponseWriter, ctx ErrorC
 </html>`
 
 	w.Write([]byte(html))
-}
-
-// Helper functions
-func valueOrDefault(value, defaultValue string) string {
-	if value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-func isBrowserRequest(r *http.Request) bool {
-	accept := r.Header.Get("Accept")
-	userAgent := r.Header.Get("User-Agent")
-	return strings.Contains(accept, "text/html") || strings.Contains(userAgent, "Mozilla")
-}
-
-func isSecureRequest(r *http.Request) bool {
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto == "https" {
-		return true
-	}
-	if r.TLS != nil {
-		return true
-	}
-	if r.URL.Scheme == "https" {
-		return true
-	}
-	return false
-}
-
-func parseSameSite(value string, secure bool) http.SameSite {
-	switch value {
-	case "None":
-		return http.SameSiteNoneMode
-	case "Lax", "":
-		return http.SameSiteLaxMode
-	case "Strict":
-		return http.SameSiteStrictMode
-	default:
-		if secure {
-			return http.SameSiteLaxMode
-		}
-		return http.SameSiteDefaultMode
-	}
 }

@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"easyserver/contentloader"
-	"easyserver/render"
-	"easyserver/storage"
+	"easyserver/io/http/contentloader"
+	"easyserver/infra/render"
+	"easyserver/orchestrator/features/storage"
 	"fmt"
 	"io"
 	"mime"

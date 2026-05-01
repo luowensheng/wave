@@ -1,7 +1,7 @@
 package contentloader
 
 import (
-	"easyserver/auth"
+	"easyserver/orchestrator/features/auth"
 	"easyserver/domain"
 	"encoding/json"
 	"fmt"

@@ -3,7 +3,7 @@ package routes
 import (
 	"bufio"
 	"bytes"
-	"easyserver/render"
+	"easyserver/infra/render"
 	"encoding/json"
 	"fmt"
 	"io"

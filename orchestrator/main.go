@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"easyserver/infra/net"
-	"easyserver/servers"
+	"easyserver/orchestrator/server"
 
 	log "easyserver/infra/logger"
 	"flag"

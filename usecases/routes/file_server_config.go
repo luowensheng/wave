@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	log "easyserver/infra/logger"
-	"easyserver/render"
+	"easyserver/infra/render"
 )
 
 type FileServerConfig struct {

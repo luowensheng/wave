@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"easyserver/contentloader"
+	"easyserver/io/http/contentloader"
 	"easyserver/domain"
 	"fmt"
 )

@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"easyserver/auth"
+	"easyserver/orchestrator/features/auth"
 	"fmt"
 	"html/template"
 	"io"

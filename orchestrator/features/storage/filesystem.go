@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"easyserver/infra/common"
-	"easyserver/contentloader"
+	"easyserver/io/http/contentloader"
 	"strings"
 	"text/template"
 )
