@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "easyserver/pkg/logger"
+	log "easyserver/infra/logger"
 	"easyserver/render"
 )
 

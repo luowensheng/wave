@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"easyserver/pkg/common"
-	"easyserver/pkg/logger/loglevel"
+	"easyserver/infra/common"
+	"easyserver/infra/logger/loglevel"
 	"time"
 )
 

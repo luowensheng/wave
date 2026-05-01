@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"easyserver/pkg/common"
+	"easyserver/infra/common"
 	"easyserver/contentloader"
 	"strings"
 	"text/template"

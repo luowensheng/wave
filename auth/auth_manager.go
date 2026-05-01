@@ -3,7 +3,7 @@ package auth
 
 import (
 	"context"
-	"easyserver/pkg/common"
+	"easyserver/infra/common"
 	"encoding/json"
 	"fmt"
 	"log"

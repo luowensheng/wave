@@ -5,7 +5,7 @@ import (
 	"easyserver/net"
 	"easyserver/servers"
 
-	log "easyserver/pkg/logger"
+	log "easyserver/infra/logger"
 	"flag"
 	"fmt"
 	"os"

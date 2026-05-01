@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"easyserver/auth"
 	"easyserver/contentloader"
-	"easyserver/pkg/common"
+	"easyserver/infra/common"
 	"fmt"
 	"os"
 	"path/filepath"
