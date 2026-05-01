@@ -1,4 +1,4 @@
-package servers
+package common
 
 import (
 	"gopkg.in/yaml.v3"

@@ -58,7 +58,7 @@ type Config struct {
 
 	Auth      map[string]*auth.AuthConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Build     *bundler.Config             `yaml:"build,omitempty" json:"build,omitempty"`
-	RawRoutes RawYAML                     `yaml:"routes,omitempty" json:"-,omitempty"`
+	RawRoutes common.RawYAML               `yaml:"routes,omitempty" json:"-,omitempty"`
 	Routes    []*Route                    `yaml:"-" json:"Routes"`
 
 	IpFilter *struct {
@@ -340,7 +340,7 @@ func (s *Server) renderVars() error {
 		return err
 	}
 	defer func() {
-		s.Config.RawRoutes = RawYAML{}
+		s.Config.RawRoutes = common.RawYAML{}
 	}()
 
 	routeString := string(routeBytes)
