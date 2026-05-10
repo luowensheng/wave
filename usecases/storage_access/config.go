@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"reflect"
 
 	"wave/infra/render"
 	"wave/io/http/contentloader"
@@ -19,6 +20,13 @@ type Config struct {
 	OutputTemplate      string `yaml:"output_template"`
 	ResponseContentType string `yaml:"response_content_type"`
 	ExpectedContentType string `yaml:"expected_content_type"`
+
+	// IfEmptyStatus overrides the response status when the SQL/storage
+	// execution returns no rows (or an empty result). Default 0 = use
+	// 200 with the rendered template (back-compat). Set to 404 on GET
+	// routes that should signal "not found" for missing keys
+	// (kv-store, lookup-by-id endpoints, etc.).
+	IfEmptyStatus int `yaml:"if_empty_status,omitempty"`
 }
 
 // StorageRef is the interface that storage backends must satisfy.
@@ -93,6 +101,16 @@ func (c *Config) CreateRoute(method, path string, data map[string]string) (http.
 			return
 		}
 
+		// Empty-result short circuit: routes that opt in via
+		// `if_empty_status:` get that status code returned with a tiny
+		// JSON body, instead of rendering the template against nil.
+		if c.IfEmptyStatus > 0 && isEmptyResult(result) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(c.IfEmptyStatus)
+			_, _ = w.Write([]byte(`{"error":"not found"}` + "\n"))
+			return
+		}
+
 		if c.ResponseContentType == "$filetype" {
 			dataMap, ok := result.(map[string]any)
 			if !ok {
@@ -146,4 +164,44 @@ func (c *Config) CreateRoute(method, path string, data map[string]string) (http.
 
 		w.Write(buffer.Bytes())
 	}, nil
+}
+
+// isEmptyResult reports whether the storage Execute result is "no row".
+// Handles the bare shapes (nil / empty slice / empty map) AND wrapped
+// shapes that carry the rows under a `Data` field — covers both the
+// SQLite ExecuteResult struct and the plugin-storage map wrapper.
+func isEmptyResult(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch x := v.(type) {
+	case []map[string]any:
+		return len(x) == 0
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		if data, ok := x["Data"]; ok {
+			return isEmptyResult(data)
+		}
+		return len(x) == 0
+	case string:
+		return x == ""
+	}
+	// Reflect into struct/pointer types so backend-specific result
+	// wrappers (sqlite.ExecuteResult etc.) work without explicit
+	// imports.
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return true
+		}
+		rv = rv.Elem()
+	}
+	if rv.Kind() == reflect.Struct {
+		// Look for an exported `Data` field; treat empty / nil as no row.
+		if f := rv.FieldByName("Data"); f.IsValid() && f.CanInterface() {
+			return isEmptyResult(f.Interface())
+		}
+	}
+	return false
 }

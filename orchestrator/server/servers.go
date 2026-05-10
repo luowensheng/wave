@@ -419,10 +419,20 @@ func (s *Server) HandleFunc(route *Route) error {
 		corsOrigins := route.CorsOrigins
 		prev := wrappedHandler
 		wrappedHandler = func(w http.ResponseWriter, r *http.Request) {
-			if connections.HandleCORS(w, r, corsOrigins) && r.Method == http.MethodOptions {
-				return
+			// Preflight: short-circuit the handler entirely.
+			if r.Method == http.MethodOptions {
+				if connections.HandleCORS(w, r, corsOrigins) {
+					return
+				}
 			}
-			prev(w, r)
+			// For real requests we wrap the writer so the configured
+			// CORS headers WIN over anything the upstream / inner
+			// handler emits. Without this, proxy routes that pass
+			// through an upstream that ALSO sets CORS produce duplicate
+			// Access-Control-Allow-Origin headers (cors-proxy example).
+			cw := newCORSResponseWriter(w, r, corsOrigins)
+			prev(cw, r)
+			cw.commitHeaders()
 		}
 	}
 

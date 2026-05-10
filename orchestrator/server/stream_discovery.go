@@ -54,7 +54,7 @@ func (s *Server) registerStreamDiscovery() {
 	}
 
 	body, _ := json.Marshal(streams)
-	s.mux.HandleFunc("/api/streams.json", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.HandleFunc("GET /api/streams.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(body)
 	})

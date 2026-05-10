@@ -8,11 +8,11 @@ import "net/http"
 // expandable details. Good enough for internal tools and CI smoke
 // tests; reach for full Swagger UI if you need request execution UI.
 func (s *Server) registerDocsViewer() {
-	s.mux.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(docsHTML))
 	})
-	s.mux.HandleFunc("/docs/", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.HandleFunc("GET /docs/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs", http.StatusFound)
 	})
 }

@@ -101,6 +101,21 @@ type  Route struct {
 	// are not stripped.
 	Inputs []inputs.Spec `yaml:"inputs,omitempty" json:"inputs,omitempty"`
 
+	// ExpectedContentType declares how to parse the request body for
+	// `source: body` / `source: form` / `source: body_raw` inputs.
+	// Recognized values:
+	//
+	//   application/json                  (default)
+	//   application/x-www-form-urlencoded
+	//   multipart/form-data               (required for type:file)
+	//   text/plain | application/octet-stream
+	//
+	// Empty defaults to JSON for back-compat. Routes that accept file
+	// uploads MUST set multipart/form-data; routes that accept raw
+	// bodies (kv stores, plain-text APIs) MUST set text/plain or
+	// octet-stream and use source: body_raw.
+	ExpectedContentType string `yaml:"expected_content_type,omitempty" json:"expected_content_type,omitempty"`
+
 	// inputsSet is the compiled form populated by setRouteConfig().
 	// Not directly serializable.
 	inputsSet *inputs.SpecSet
@@ -219,6 +234,7 @@ func (route *Route) setRouteConfig() error {
 		if err != nil {
 			return fmt.Errorf("inputs for path=%q: %w", route.Path, err)
 		}
+		set.ExpectedContentType = route.ExpectedContentType
 		route.inputsSet = set
 	}
 	return nil

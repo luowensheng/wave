@@ -1,8 +1,10 @@
-# kv-store — generic key/value HTTP API backed by SQLite.
+# kv-store — generic key/value HTTP API.
+#
+# Demonstrates raw-body input capture (`source: body_raw, type: bytes`)
+# and the new `if_empty_status: 404` so missing keys return a clean
+# 404 instead of a fake 200/null.
 #
 #   wave serve examples/apps/kv-store/server.yaml --port 8105
-#
-# UPSERT on PUT, simple lookup on GET, hard delete on DELETE.
 
 default:
   host: 127.0.0.1
@@ -11,43 +13,40 @@ default:
 storage:
   kv:
     type: sqlite
-    path: ./data.db
+    path: ./data/kv.db
     tables:
       kv:
         columns:
           - k TEXT PRIMARY KEY
-          - v BLOB
-          - updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          - v BLOB NOT NULL
 
 routes:
+  - path: /kv/{key}
+    method: PUT
+    type: storage-access
+    expected_content_type: text/plain
+    inputs:
+      - { name: key,   source: path,     type: string, required: true }
+      - { name: value, source: body_raw, type: bytes,  required: true }
+    storage-access:
+      source: kv
+      execute: |
+        INSERT INTO kv(k, v) VALUES ({{key}}, {{value}})
+        ON CONFLICT(k) DO UPDATE SET v = excluded.v
+      response_content_type: application/json
+      output_template: '{"ok": true}'
+
   - path: /kv/{key}
     method: GET
     type: storage-access
     inputs:
-      - { name: key, source: path, type: string, required: true, min: 1, max: 256 }
+      - { name: key, source: path, type: string, required: true }
     storage-access:
       source: kv
-      execute: "SELECT v FROM kv WHERE k = {{key}} LIMIT 1"
-      response_content_type: application/json
-      output_template: "{{toJSON .Data}}"
-
-  # PUT replaces the whole row. Body is taken raw from the request
-  # under the input name `body` (string source=body grabs the entire
-  # decoded text body when no field name matches).
-  - path: /kv/{key}
-    method: PUT
-    type: storage-access
-    inputs:
-      - { name: key,  source: path, type: string, required: true, min: 1, max: 256 }
-      - { name: body, source: body, type: string, required: true }
-    storage-access:
-      source: kv
-      execute: |
-        INSERT INTO kv(k, v, updated_at)
-        VALUES ({{key}}, {{body}}, datetime('now'))
-        ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = excluded.updated_at
-      response_content_type: application/json
-      output_template: '{"ok": true, "key": {{ key | printf "%q" }}}'
+      execute: "SELECT v FROM kv WHERE k = {{key}}"
+      if_empty_status: 404
+      response_content_type: application/octet-stream
+      output_template: "{{ (index .Data 0).v }}"
 
   - path: /kv/{key}
     method: DELETE
@@ -59,13 +58,3 @@ routes:
       execute: "DELETE FROM kv WHERE k = {{key}}"
       response_content_type: application/json
       output_template: '{"deleted": {{.RowsAffected}}}'
-
-  # Convenience: list every key (no values, just metadata).
-  - path: /kv
-    method: GET
-    type: storage-access
-    storage-access:
-      source: kv
-      execute: "SELECT k, length(v) AS bytes, updated_at FROM kv ORDER BY k"
-      response_content_type: application/json
-      output_template: "{{toJSON .Data}}"

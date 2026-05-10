@@ -42,7 +42,7 @@ routes:
       - { name: label, source: query, type: string, default: "anon", max: 64 }
     storage-access:
       source: cache
-      execute: "INSERT INTO hits(label) VALUES ('{{.label}}')"
+      execute: "INSERT INTO hits(label) VALUES ({{label}})"
       response_content_type: application/json
       output_template: '{"id": {{.LastInsertID}}, "label": "{{.label}}"}'
 

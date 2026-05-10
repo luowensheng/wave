@@ -19,7 +19,13 @@ var (
 var Version = "dev"
 
 func registerHealthRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	// Register as GET-only. Without an explicit method Go 1.22+ ServeMux
+	// treats a bare path as "any method" and panics on conflict with
+	// sibling routes that ARE method-specific (e.g. a user's `GET /` file
+	// route), because the bare pattern matches more methods than they
+	// do while having a more specific path. Health endpoints are
+	// idempotent reads — GET-only is the right contract anyway.
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":     "ok",
@@ -27,7 +33,7 @@ func registerHealthRoutes(mux *http.ServeMux) {
 			"version":    Version,
 		})
 	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if readinessFlag.Load() == 1 {
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
@@ -36,7 +42,7 @@ func registerHealthRoutes(mux *http.ServeMux) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "starting"})
 	})
-	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"version": Version})
 	})

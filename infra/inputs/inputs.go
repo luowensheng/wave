@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,25 +33,46 @@ import (
 type Source string
 
 const (
-	SourcePath   Source = "path"
-	SourceQuery  Source = "query"
-	SourceBody   Source = "body"   // top-level keys of a JSON body
-	SourceForm   Source = "form"   // form-encoded body or multipart
-	SourceHeader Source = "header"
-	SourceCookie Source = "cookie"
+	SourcePath    Source = "path"
+	SourceQuery   Source = "query"
+	SourceBody    Source = "body"     // a named field of the parsed body (JSON key, multipart field, form value)
+	SourceForm    Source = "form"     // form-encoded body or multipart (legacy alias for body when CT is form/multipart)
+	SourceHeader  Source = "header"
+	SourceCookie  Source = "cookie"
+	SourceBodyRaw Source = "body_raw" // the whole request body as bytes (for text/plain, octet-stream, etc.)
 )
 
 // Type enumerates the coercion target for a parsed input.
 type Type string
 
 const (
-	TypeString  Type = "string"
-	TypeInt     Type = "int"
-	TypeFloat   Type = "float"
-	TypeBool    Type = "bool"
-	TypeEmail   Type = "email"
-	TypeUUID    Type = "uuid"
+	TypeString Type = "string"
+	TypeInt    Type = "int"
+	TypeFloat  Type = "float"
+	TypeBool   Type = "bool"
+	TypeEmail  Type = "email"
+	TypeUUID   Type = "uuid"
+	TypeFile   Type = "file"  // multipart file upload — value is *File
+	TypeBytes  Type = "bytes" // raw bytes — value is []byte
 )
+
+// File is the value type for inputs declared as `type: file`. Surfaced
+// to handlers via inputs.FromContext(ctx)["fieldname"].
+type File struct {
+	Filename    string               `json:"filename"`
+	Size        int64                `json:"size"`
+	ContentType string               `json:"content_type"`
+	Header      textproto.MIMEHeader `json:"-"`
+	header      *multipart.FileHeader
+}
+
+// Open returns a reader for the file's bytes. Caller must Close.
+func (f *File) Open() (multipart.File, error) {
+	if f.header == nil {
+		return nil, fmt.Errorf("file %q has no underlying multipart header", f.Filename)
+	}
+	return f.header.Open()
+}
 
 // Spec describes one declared input.
 type Spec struct {
@@ -69,9 +92,24 @@ type Spec struct {
 }
 
 // SpecSet is the materialized, validated form of an `inputs:` block.
+//
+// ExpectedContentType is the Content-Type the route declares it accepts
+// for body inputs. It drives how source: body / body_raw / form get
+// extracted:
+//
+//	application/json                  → JSON-parse, lookup by key
+//	application/x-www-form-urlencoded → form-parse, lookup by key
+//	multipart/form-data               → multipart-parse, files via type:file
+//	text/plain | application/octet-stream | (anything else) → raw bytes
+//	                                    (only source:body_raw works)
+//
+// Empty defaults to JSON for back-compat with routes that pre-date this
+// field. The middleware logs a warning when the request's Content-Type
+// doesn't match the declared expectation.
 type SpecSet struct {
-	List   []Spec
-	byName map[string]*Spec
+	List                []Spec
+	ExpectedContentType string
+	byName              map[string]*Spec
 }
 
 // Compile validates a list of Specs (default values match the type,
@@ -90,7 +128,7 @@ func Compile(specs []Spec) (*SpecSet, error) {
 		switch s.Source {
 		case "":
 			s.Source = SourceQuery // sane default for GETs; explicit always wins
-		case SourcePath, SourceQuery, SourceBody, SourceForm, SourceHeader, SourceCookie:
+		case SourcePath, SourceQuery, SourceBody, SourceForm, SourceHeader, SourceCookie, SourceBodyRaw:
 			// ok
 		default:
 			return nil, fmt.Errorf("input %q: unknown source %q", s.Name, s.Source)
@@ -99,9 +137,17 @@ func Compile(specs []Spec) (*SpecSet, error) {
 			s.Type = TypeString
 		}
 		switch s.Type {
-		case TypeString, TypeInt, TypeFloat, TypeBool, TypeEmail, TypeUUID:
+		case TypeString, TypeInt, TypeFloat, TypeBool, TypeEmail, TypeUUID, TypeFile, TypeBytes:
 		default:
 			return nil, fmt.Errorf("input %q: unknown type %q", s.Name, s.Type)
+		}
+		// Type:file requires source:body or source:form (looked up in
+		// the multipart file map). Type:bytes requires source:body_raw.
+		if s.Type == TypeFile && s.Source != SourceBody && s.Source != SourceForm {
+			return nil, fmt.Errorf("input %q: type:file requires source:body or source:form", s.Name)
+		}
+		if s.Type == TypeBytes && s.Source != SourceBodyRaw {
+			return nil, fmt.Errorf("input %q: type:bytes requires source:body_raw", s.Name)
 		}
 		if s.Pattern != "" {
 			re, err := regexp.Compile(s.Pattern)
@@ -146,7 +192,7 @@ type Result struct {
 // + the list of issues. Caller decides how to respond on len(issues)>0.
 func (s *SpecSet) Parse(r *http.Request) Result {
 	out := Result{Values: map[string]any{}}
-	bodyMap := readBodyJSON(r) // lazy / cached on first body input
+	body := parseBody(r, s.ExpectedContentType)
 	formParsed := false
 
 	for _, sp := range s.List {
@@ -154,7 +200,35 @@ func (s *SpecSet) Parse(r *http.Request) Result {
 		if key == "" {
 			key = sp.Name
 		}
-		raw, present := lookup(r, sp.Source, key, bodyMap, &formParsed)
+
+		// Type:file is a non-string lookup straight from the multipart
+		// file map. Skip the string-coerce path entirely.
+		if sp.Type == TypeFile {
+			if f, ok := body.files[key]; ok {
+				out.Values[sp.Name] = f
+				continue
+			}
+			if sp.Required {
+				out.Issues = append(out.Issues, Issue{Input: sp.Name, Source: string(sp.Source), Reason: "required"})
+			}
+			continue
+		}
+
+		// Type:bytes: hand back the captured raw bytes (or the file's
+		// bytes if the source is body_raw and a multipart raw body was
+		// captured — degenerate case, mostly useful with text/plain).
+		if sp.Type == TypeBytes {
+			if body.raw != nil {
+				out.Values[sp.Name] = body.raw
+				continue
+			}
+			if sp.Required {
+				out.Issues = append(out.Issues, Issue{Input: sp.Name, Source: string(sp.Source), Reason: "required"})
+			}
+			continue
+		}
+
+		raw, present := lookup(r, sp.Source, key, body, &formParsed)
 
 		if !present {
 			if sp.Default != nil {
@@ -190,7 +264,7 @@ func (s *SpecSet) Parse(r *http.Request) Result {
 }
 
 // lookup pulls a single value by source. Returns (raw-string, present).
-func lookup(r *http.Request, src Source, key string, bodyMap map[string]any, formParsed *bool) (string, bool) {
+func lookup(r *http.Request, src Source, key string, body bodyData, formParsed *bool) (string, bool) {
 	switch src {
 	case SourcePath:
 		v := r.PathValue(key)
@@ -201,6 +275,11 @@ func lookup(r *http.Request, src Source, key string, bodyMap map[string]any, for
 		}
 		return r.URL.Query().Get(key), true
 	case SourceHeader:
+		// Special-case Host: Go strips it from r.Header and stores it
+		// on r.Host. Same trick as net/http.Server's own logger.
+		if strings.EqualFold(key, "Host") {
+			return r.Host, r.Host != ""
+		}
 		v := r.Header.Get(key)
 		return v, v != ""
 	case SourceCookie:
@@ -209,57 +288,157 @@ func lookup(r *http.Request, src Source, key string, bodyMap map[string]any, for
 			return "", false
 		}
 		return c.Value, true
-	case SourceBody:
-		if bodyMap == nil {
+	case SourceBody, SourceForm:
+		// Both sources read from the parsed body. SourceForm is kept as
+		// a legacy alias for SourceBody when the body is form-encoded
+		// or multipart. The body parser already populated body.values.
+		if body.values == nil {
 			return "", false
 		}
-		v, ok := bodyMap[key]
+		v, ok := body.values[key]
 		if !ok {
 			return "", false
 		}
-		// Coerce to string — coerce() reparses below.
 		return fmt.Sprint(v), true
-	case SourceForm:
-		if !*formParsed {
-			_ = r.ParseForm()
-			*formParsed = true
+	case SourceBodyRaw:
+		// Raw body capture: the caller is binding the entire request
+		// body to a single named input. Returned as a string so the
+		// usual coerce() path applies (TypeBytes is short-circuited
+		// in Parse before this point).
+		if body.raw == nil {
+			return "", false
 		}
-		if r.PostForm.Has(key) {
-			return r.PostForm.Get(key), true
-		}
-		if r.Form.Has(key) {
-			return r.Form.Get(key), true
-		}
-		return "", false
+		return string(body.raw), true
 	}
 	return "", false
 }
 
-// readBodyJSON consumes r.Body once and replaces it with a buffered
-// re-readable copy so downstream handlers (api/storage_access) still
-// see the body. Returns nil when the request isn't JSON.
-func readBodyJSON(r *http.Request) map[string]any {
+// bodyData is the result of parsing the request body according to the
+// route's expected_content_type. Carries scalar values (form fields /
+// json keys), file uploads (multipart only), and the raw bytes (for
+// text/plain or octet-stream body_raw inputs).
+type bodyData struct {
+	values map[string]any
+	files  map[string]*File
+	raw    []byte
+}
+
+// parseBody reads r.Body once according to expectedCT and returns a
+// bodyData. The body is replaced with a re-readable buffer so downstream
+// handlers (api / storage_access) still see it.
+//
+// expectedCT empty defaults to JSON for back-compat with routes that
+// pre-date the field. Unknown content types fall through to raw capture.
+func parseBody(r *http.Request, expectedCT string) bodyData {
 	if r.Body == nil {
-		return nil
+		return bodyData{}
 	}
-	ct := r.Header.Get("Content-Type")
-	if !strings.Contains(strings.ToLower(ct), "json") {
-		return nil
+	want := normalizeCT(expectedCT)
+	if want == "" {
+		// No declared expectation — sniff from request, but only honour
+		// JSON / multipart / form-urlencoded. Anything else is raw.
+		want = normalizeCT(r.Header.Get("Content-Type"))
 	}
+	switch want {
+	case "application/json", "":
+		return parseJSONBody(r)
+	case "multipart/form-data":
+		return parseMultipartBody(r)
+	case "application/x-www-form-urlencoded":
+		return parseURLEncodedBody(r)
+	default:
+		return parseRawBody(r)
+	}
+}
+
+// normalizeCT strips parameters (charset, boundary) and lowercases.
+func normalizeCT(ct string) string {
+	ct = strings.TrimSpace(strings.ToLower(ct))
+	if i := strings.IndexByte(ct, ';'); i >= 0 {
+		ct = strings.TrimSpace(ct[:i])
+	}
+	return ct
+}
+
+func parseJSONBody(r *http.Request) bodyData {
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil
+		return bodyData{}
 	}
 	_ = r.Body.Close()
 	r.Body = newRereadable(raw)
 	if len(raw) == 0 {
-		return nil
+		return bodyData{raw: raw}
 	}
 	out := map[string]any{}
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
+		// Malformed JSON returns the raw bytes so body_raw still works
+		// and required field validation still flags missing keys.
+		return bodyData{raw: raw}
+	}
+	return bodyData{values: out, raw: raw}
+}
+
+const maxMultipartMemory = 32 << 20 // 32 MiB
+
+func parseMultipartBody(r *http.Request) bodyData {
+	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil {
+		return bodyData{}
+	}
+	out := bodyData{values: map[string]any{}, files: map[string]*File{}}
+	for k, vs := range r.MultipartForm.Value {
+		if len(vs) == 1 {
+			out.values[k] = vs[0]
+		} else {
+			out.values[k] = vs
+		}
+	}
+	for k, headers := range r.MultipartForm.File {
+		if len(headers) == 0 {
+			continue
+		}
+		h := headers[0]
+		out.files[k] = &File{
+			Filename:    h.Filename,
+			Size:        h.Size,
+			ContentType: h.Header.Get("Content-Type"),
+			Header:      h.Header,
+			header:      h,
+		}
 	}
 	return out
+}
+
+func parseURLEncodedBody(r *http.Request) bodyData {
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		return bodyData{}
+	}
+	_ = r.Body.Close()
+	r.Body = newRereadable(raw)
+	// Re-set the body so ParseForm reads from our rereadable copy.
+	if err := r.ParseForm(); err != nil {
+		return bodyData{raw: raw}
+	}
+	out := map[string]any{}
+	for k, vs := range r.PostForm {
+		if len(vs) == 1 {
+			out[k] = vs[0]
+		} else {
+			out[k] = vs
+		}
+	}
+	return bodyData{values: out, raw: raw}
+}
+
+func parseRawBody(r *http.Request) bodyData {
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		return bodyData{}
+	}
+	_ = r.Body.Close()
+	r.Body = newRereadable(raw)
+	return bodyData{raw: raw}
 }
 
 // rereadable lets a handler chain read r.Body more than once.

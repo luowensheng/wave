@@ -1,57 +1,50 @@
-# multi-tenant-saas — subdomain-derived tenant scoping.
+# multi-tenant-saas — derive the tenant from the request Host header
+# and scope every storage query by tenant_id.
 #
-# The Host header (e.g. `acme.localhost:8602`) is parsed via inputs to
-# expose `{{tenant}}` to storage queries. Every row carries a tenant_id,
-# so cross-tenant reads can't leak.
+# Now uses the `Host` special-case in the inputs layer (source: header,
+# from: Host pulls from r.Host, not r.Header which Go strips). Hit with:
+#   curl -H 'Host: tenant-a.localhost' http://127.0.0.1:8602/notes
+#   curl -H 'Host: tenant-b.localhost' http://127.0.0.1:8602/notes
 #
-# Run:
 #   wave serve examples/apps/multi-tenant-saas/server.yaml --port 8602
-# Test (acme tenant):
-#   curl --resolve acme.localhost:8602:127.0.0.1 \
-#        http://acme.localhost:8602/projects
-#   curl --resolve acme.localhost:8602:127.0.0.1 -X POST \
-#        http://acme.localhost:8602/projects \
-#        -H 'Content-Type: application/json' \
-#        -d '{"name":"alpha"}'
 
 default:
   host: 127.0.0.1
   port: 8602
 
 storage:
-  app:
+  notes:
     type: sqlite
-    path: ./data.db
+    path: ./data/multi.db
     tables:
-      projects:
+      notes:
         columns:
           - id INTEGER PRIMARY KEY AUTOINCREMENT
           - tenant_id TEXT NOT NULL
-          - name TEXT NOT NULL
+          - body TEXT NOT NULL
           - created_at TEXT NOT NULL DEFAULT (datetime('now'))
 
 routes:
-  - path: /projects
+  - path: /notes
     method: GET
     type: storage-access
     inputs:
-      - { name: tenant, source: header, from: Host, type: string, required: true,
-          pattern: "^[a-z0-9-]+\\.localhost(:[0-9]+)?$" }
+      - { name: tenant_id, source: header, from: Host, type: string, required: true, pattern: "^[a-z0-9-]+\\.localhost.*" }
     storage-access:
-      source: app
-      execute: "SELECT id, name, created_at FROM projects WHERE tenant_id = substr({{tenant}}, 1, instr({{tenant}}, '.localhost')-1) ORDER BY id DESC"
+      source: notes
+      execute: "SELECT id, body, created_at FROM notes WHERE tenant_id = {{tenant_id}} ORDER BY id DESC"
       response_content_type: application/json
       output_template: "{{toJSON .Data}}"
 
-  - path: /projects
+  - path: /notes
     method: POST
     type: storage-access
+    expected_content_type: application/json
     inputs:
-      - { name: tenant, source: header, from: Host, type: string, required: true,
-          pattern: "^[a-z0-9-]+\\.localhost(:[0-9]+)?$" }
-      - { name: name, source: body, type: string, required: true, min: 1, max: 80 }
+      - { name: tenant_id, source: header, from: Host,   type: string, required: true, pattern: "^[a-z0-9-]+\\.localhost.*" }
+      - { name: body,      source: body,                 type: string, required: true, min: 1, max: 1000 }
     storage-access:
-      source: app
-      execute: "INSERT INTO projects(tenant_id, name) VALUES (substr({{tenant}}, 1, instr({{tenant}}, '.localhost')-1), {{name}})"
+      source: notes
+      execute: "INSERT INTO notes(tenant_id, body) VALUES ({{tenant_id}}, {{body}})"
       response_content_type: application/json
       output_template: '{"id": {{.LastInsertID}}}'

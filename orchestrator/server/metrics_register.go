@@ -58,7 +58,7 @@ func (s *Server) registerMetricsEndpoint() {
 		}
 	}
 
-	s.mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		metrics.Render(w)
 	})

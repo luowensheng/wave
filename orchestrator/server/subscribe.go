@@ -47,7 +47,13 @@ func (s *Server) registerSubscribeRoutes() {
 			handler = auth.RequireAuth(handler, cfg.SubscribeAuth...)
 		}
 
-		s.mux.Handle(path, handler)
+		// Register as GET-only. Without an explicit method Go 1.22+ ServeMux
+		// treats this as "any method" and panics on conflict with sibling
+		// routes that ARE method-specific (e.g. a `GET /` file route),
+		// because the subscribe pattern matches more methods than they do
+		// while having a more specific path. Subscribe is GET-only by SSE
+		// + WebSocket convention anyway.
+		s.mux.Handle("GET "+path, handler)
 		log.Printf("registered subscribe route: GET %s (connection=%s, auth=%v, cors=%v)",
 			path, name, cfg.SubscribeAuth, cfg.SubscribeCorsOrigins)
 	}

@@ -60,8 +60,10 @@ type adminPlugin struct {
 // behind auth. Wrap it in your existing route auth by configuring an
 // `admin` auth and adding it as a `Route` if you want extra hardening.
 func (s *Server) registerAdminDashboard() {
-	s.mux.HandleFunc("/admin/", s.adminHandler)
-	s.mux.HandleFunc("/admin", s.adminHandler)
+	// GET-only registrations so a user's `GET /` file route doesn't
+	// hit the Go 1.22 ServeMux "more methods than" conflict panic.
+	s.mux.HandleFunc("GET /admin/", s.adminHandler)
+	s.mux.HandleFunc("GET /admin", s.adminHandler)
 }
 
 func (s *Server) adminHandler(w http.ResponseWriter, r *http.Request) {

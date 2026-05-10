@@ -96,16 +96,16 @@ routes:
       response_content_type: text/html
       output_template: |
         <!doctype html><html><head><meta charset="utf-8">
-        <title>paste {{.Data.slug}}</title>
+        <title>paste {{(index .Data 0).slug}}</title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism.css">
         <style>body{font:14px/1.4 system-ui;max-width:900px;margin:1.5rem auto;padding:0 1rem}
         .meta{color:#888;font-size:.85em;margin-bottom:.6rem}
         pre{background:#f6f6f6;padding:1rem;border-radius:6px;overflow:auto}</style>
         </head><body>
-        <h2>paste · {{.Data.slug}}</h2>
-        <div class="meta">{{.Data.language}} · created {{.Data.created_at}} · {{.Data.views}} views ·
-        <a href="/raw/{{.Data.slug}}">raw</a></div>
-        <pre><code class="language-{{.Data.language}}">{{.Data.content}}</code></pre>
+        <h2>paste · {{(index .Data 0).slug}}</h2>
+        <div class="meta">{{(index .Data 0).language}} · created {{(index .Data 0).created_at}} · {{(index .Data 0).views}} views ·
+        <a href="/raw/{{(index .Data 0).slug}}">raw</a></div>
+        <pre><code class="language-{{(index .Data 0).language}}">{{(index .Data 0).content}}</code></pre>
         <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
@@ -128,4 +128,4 @@ routes:
           AND (expires_at IS NULL OR expires_at > datetime('now'))
         LIMIT 1
       response_content_type: text/plain; charset=utf-8
-      output_template: '{{.Data.content}}'
+      output_template: '{{(index .Data 0).content}}'

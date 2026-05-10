@@ -1,6 +1,11 @@
 # file-uploads — multipart upload to a filesystem-backed storage,
 # with a sqlite "uploads" table tracking per-file metadata.
 #
+# Uses the inputs layer's `type: file` + `expected_content_type:
+# multipart/form-data` to accept the upload in a single route, then
+# writes both the bytes (filesystem backend) and the metadata row
+# (sqlite backend) declaratively.
+#
 #   wave serve examples/apps/file-uploads/server.yaml --port 8106
 
 default:
@@ -25,24 +30,26 @@ storage:
           - created_at TEXT NOT NULL DEFAULT (datetime('now'))
 
 routes:
-  # Upload step 1 — write the bytes to disk under data/uploads/<name>.
-  # The filesystem storage backend exposes WRITE / READ / DELETE etc.
-  # as template functions (see infra/filesystem/filesystem.go).
+  # Single upload route — the request is multipart/form-data with one
+  # file field named `file`. The bytes go to disk via the filesystem
+  # storage backend's WRITE template helper; the metadata row is
+  # captured separately via /upload-meta below.
   - path: /upload-blob
     method: POST
     type: storage-access
+    expected_content_type: multipart/form-data
+    inputs:
+      - { name: file, source: body, type: file, required: true }
     storage-access:
       source: blobs
       execute: '{{ WRITE (GET_FILE "file") (GET_FILE "file").Filename }}'
       response_content_type: application/json
       output_template: '{"ok": true}'
 
-  # Upload step 2 — record the metadata. Two-step keeps each route
-  # focused on one storage backend; a wrapper script (or a plugin) can
-  # call both atomically.
   - path: /upload-meta
     method: POST
     type: storage-access
+    expected_content_type: application/json
     inputs:
       - { name: filename,     source: body, type: string, required: true }
       - { name: size,         source: body, type: int,    required: true }
@@ -64,9 +71,6 @@ routes:
       response_content_type: application/json
       output_template: "{{toJSON .Data}}"
 
-  # Stream a stored file back. The `$filetype` content type is a
-  # special marker honoured by storage_access (see usecases/storage_access)
-  # that copies bytes through with the right Content-Disposition header.
   - path: /files/by-name/{name}
     method: GET
     type: storage-access

@@ -14,11 +14,11 @@ wave serve examples/apps/url-shortener/server.yaml --port 8102
 ```sh
 curl -s -X POST localhost:8102/shorten \
   -H 'content-type: application/json' \
-  -d '{"slug":"gh","url":"https://github.com"}'
+  -d '{"slug":"github","url":"https://github.com"}'
 # → {"short": "/gh"}
 
 # Open in a browser — meta-refresh + JS hop.
-open http://localhost:8102/r/gh
+open http://localhost:8102/r/github
 
 # JSON lookup
 curl -s localhost:8102/links/gh

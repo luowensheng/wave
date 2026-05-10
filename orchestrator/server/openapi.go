@@ -23,7 +23,7 @@ func (s *Server) registerOpenAPI() {
 	if err != nil {
 		return // best-effort; never block boot
 	}
-	s.mux.HandleFunc("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(body)
 	})

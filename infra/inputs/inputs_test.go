@@ -1,8 +1,10 @@
 package inputs
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -233,5 +235,148 @@ func TestNamesPreservesOrder(t *testing.T) {
 	got := set.Names()
 	if len(got) != 3 || got[0] != "a" || got[2] != "c" {
 		t.Errorf("Names() = %v", got)
+	}
+}
+
+// ── content-type-aware body parsing (added in this batch) ──
+
+func TestParseHostHeaderSpecialCase(t *testing.T) {
+	// r.Header.Get("Host") returns "" — Go strips it. Verify our
+	// special-case lookup pulls from r.Host so source: header, from: Host
+	// works end-to-end (multi-tenant-saas example app depends on this).
+	set := mustCompile(t, []Spec{{Name: "tenant", Source: SourceHeader, From: "Host", Required: true}})
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Host = "tenant1.example.com"
+	res := set.Parse(r)
+	if len(res.Issues) != 0 {
+		t.Fatalf("issues: %+v", res.Issues)
+	}
+	if res.Values["tenant"] != "tenant1.example.com" {
+		t.Errorf("tenant = %v", res.Values["tenant"])
+	}
+}
+
+func TestParseMultipartFile(t *testing.T) {
+	// Build a multipart body with a text field + a file field.
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("name", "alice")
+	fw, _ := mw.CreateFormFile("avatar", "pic.png")
+	fw.Write([]byte("\x89PNG\r\n"))
+	mw.Close()
+
+	set := mustCompile(t, []Spec{
+		{Name: "name", Source: SourceBody, Type: TypeString, Required: true},
+		{Name: "avatar", Source: SourceBody, Type: TypeFile, Required: true},
+	})
+	set.ExpectedContentType = "multipart/form-data"
+	r := httptest.NewRequest("POST", "/upload", &buf)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+
+	res := set.Parse(r)
+	if len(res.Issues) != 0 {
+		t.Fatalf("issues: %+v", res.Issues)
+	}
+	if res.Values["name"] != "alice" {
+		t.Errorf("name = %v", res.Values["name"])
+	}
+	f, ok := res.Values["avatar"].(*File)
+	if !ok || f == nil {
+		t.Fatalf("avatar not a *File: %T", res.Values["avatar"])
+	}
+	if f.Filename != "pic.png" {
+		t.Errorf("filename = %q", f.Filename)
+	}
+	if f.Size != 6 {
+		t.Errorf("size = %d", f.Size)
+	}
+	rc, err := f.Open()
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer rc.Close()
+	got, _ := io.ReadAll(rc)
+	if string(got) != "\x89PNG\r\n" {
+		t.Errorf("file bytes = %q", string(got))
+	}
+}
+
+func TestParseMultipartFileMissingRequired(t *testing.T) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	mw.Close()
+	set := mustCompile(t, []Spec{{Name: "f", Source: SourceBody, Type: TypeFile, Required: true}})
+	set.ExpectedContentType = "multipart/form-data"
+	r := httptest.NewRequest("POST", "/upload", &buf)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	res := set.Parse(r)
+	if len(res.Issues) != 1 || res.Issues[0].Input != "f" {
+		t.Errorf("expected 1 issue for f, got %+v", res.Issues)
+	}
+}
+
+func TestParseURLEncodedBody(t *testing.T) {
+	body := strings.NewReader("name=alice&age=30")
+	set := mustCompile(t, []Spec{
+		{Name: "name", Source: SourceBody, Type: TypeString, Required: true},
+		{Name: "age", Source: SourceBody, Type: TypeInt, Required: true},
+	})
+	set.ExpectedContentType = "application/x-www-form-urlencoded"
+	r := httptest.NewRequest("POST", "/contact", body)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res := set.Parse(r)
+	if len(res.Issues) != 0 {
+		t.Fatalf("issues: %+v", res.Issues)
+	}
+	if res.Values["name"] != "alice" || res.Values["age"].(int64) != 30 {
+		t.Errorf("values = %+v", res.Values)
+	}
+}
+
+func TestParseRawBodyAsBytes(t *testing.T) {
+	body := strings.NewReader("hello world")
+	set := mustCompile(t, []Spec{{Name: "payload", Source: SourceBodyRaw, Type: TypeBytes, Required: true}})
+	set.ExpectedContentType = "text/plain"
+	r := httptest.NewRequest("PUT", "/kv/foo", body)
+	r.Header.Set("Content-Type", "text/plain")
+	res := set.Parse(r)
+	if len(res.Issues) != 0 {
+		t.Fatalf("issues: %+v", res.Issues)
+	}
+	got, ok := res.Values["payload"].([]byte)
+	if !ok {
+		t.Fatalf("payload not []byte: %T", res.Values["payload"])
+	}
+	if string(got) != "hello world" {
+		t.Errorf("payload = %q", string(got))
+	}
+}
+
+func TestParseRawBodyAsString(t *testing.T) {
+	body := strings.NewReader("hello world")
+	set := mustCompile(t, []Spec{{Name: "payload", Source: SourceBodyRaw, Type: TypeString, Required: true}})
+	set.ExpectedContentType = "text/plain"
+	r := httptest.NewRequest("PUT", "/kv/foo", body)
+	r.Header.Set("Content-Type", "text/plain")
+	res := set.Parse(r)
+	if len(res.Issues) != 0 {
+		t.Fatalf("issues: %+v", res.Issues)
+	}
+	if res.Values["payload"] != "hello world" {
+		t.Errorf("payload = %v", res.Values["payload"])
+	}
+}
+
+func TestCompileRejectsTypeFileWithBadSource(t *testing.T) {
+	_, err := Compile([]Spec{{Name: "f", Source: SourceQuery, Type: TypeFile}})
+	if err == nil || !strings.Contains(err.Error(), "type:file") {
+		t.Errorf("expected type:file source error, got %v", err)
+	}
+}
+
+func TestCompileRejectsTypeBytesWithBadSource(t *testing.T) {
+	_, err := Compile([]Spec{{Name: "b", Source: SourceBody, Type: TypeBytes}})
+	if err == nil || !strings.Contains(err.Error(), "type:bytes") {
+		t.Errorf("expected type:bytes source error, got %v", err)
 	}
 }

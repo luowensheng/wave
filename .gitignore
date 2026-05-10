@@ -1,2 +1,11 @@
 .ignore
 .claude/
+
+# Generated binaries / databases / scratch files from running examples + builds
+examples/apps/*/data.db
+examples/apps/*/data/
+examples/apps/spa-with-api/dist/
+examples/apps/streaming-file-processor/a.sh
+examples/plugins/*/wave-*
+examples/apps/*/*.db
+examples/apps/*/*-demo.db
