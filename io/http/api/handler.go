@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"easyserver/infra/render"
-	"easyserver/usecases/routes"
+	"wave/infra/render"
+	"wave/usecases/routes"
 )
 
 // Config holds the configuration for the API handler.

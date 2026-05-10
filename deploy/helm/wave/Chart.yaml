@@ -1,0 +1,12 @@
+apiVersion: v2
+name: wave
+description: Helm chart for wave — config-driven HTTP server with plugins, OIDC, streaming.
+type: application
+version: 0.1.0
+appVersion: "1.0.1"
+keywords: [http, api, gateway, webhook, sse, oidc]
+home: https://github.com/yourorg/wave
+sources:
+  - https://github.com/yourorg/wave
+maintainers:
+  - name: wave

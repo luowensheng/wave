@@ -1,8 +1,8 @@
-// ./easyserver/auth/store.go
+// ./wave/auth/store.go
 package users
 
 import (
-	"easyserver/domain"
+	"wave/domain"
 	"database/sql"
 	"errors"
 	"fmt"

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "easyserver/infra/logger"
-	"easyserver/infra/render"
+	log "wave/infra/logger"
+	"wave/infra/render"
 )
 
 // Config holds the configuration for the file server handler.

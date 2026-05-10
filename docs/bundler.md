@@ -1,6 +1,6 @@
 # Frontend Bundler
 
-The bundler is a pure-Go build module that runs at easyserver startup. It concatenates JavaScript files, inlines HTML templates, copies local vendor dependencies, and generates a cache-busted `index.html` — with zero Node, npm, or external tooling required.
+The bundler is a pure-Go build module that runs at wave startup. It concatenates JavaScript files, inlines HTML templates, copies local vendor dependencies, and generates a cache-busted `index.html` — with zero Node, npm, or external tooling required.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ The bundler is a pure-Go build module that runs at easyserver startup. It concat
 
 ## Overview
 
-When you ship a frontend app with easyserver, the default dev setup fetches each JS file and HTML template individually — often 20+ HTTP requests before the app is interactive. The bundler eliminates this by producing a single self-contained bundle at server startup.
+When you ship a frontend app with wave, the default dev setup fetches each JS file and HTML template individually — often 20+ HTTP requests before the app is interactive. The bundler eliminates this by producing a single self-contained bundle at server startup.
 
 **What the bundler does:**
 
@@ -589,7 +589,7 @@ Check that `index_template` points to a file with a `</body>` tag. If it is miss
 Print `document.querySelectorAll('script[type="text/x-template"]')` in the browser console and verify the `id` attribute matches what your component's `template: '#...'` property references. Adjust `id_regex` / `id_replacement` until the generated ID matches.
 
 **Changes to JS files are not picked up.**
-The bundler runs once at startup. Restart the server to rebuild. For a live-reload development loop, use `easyserver serve-live` with `enabled: false` and serve source files directly.
+The bundler runs once at startup. Restart the server to rebuild. For a live-reload development loop, use `wave serve-live` with `enabled: false` and serve source files directly.
 
 **A glob pattern matches files in the wrong order.**
 `**` glob expansion uses filesystem walk order, which is alphabetical within each directory. Rename files or switch to explicit exact paths to control order precisely.

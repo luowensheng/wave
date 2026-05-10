@@ -2,16 +2,24 @@ package main
 
 import (
 	"context"
-	"easyserver/infra/net"
-	"easyserver/orchestrator/server"
+	"database/sql"
+	"wave/infra/migrate"
+	"wave/infra/outbox"
+	"wave/infra/net"
+	"wave/orchestrator/scaffold"
+	"wave/orchestrator/server"
+	"wave/orchestrator/studio"
 
-	log "easyserver/infra/logger"
+	log "wave/infra/logger"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
@@ -25,6 +33,20 @@ func main() {
 		serve()
 	case "serve-live":
 		servelive()
+	case "validate":
+		validate()
+	case "init":
+		initCmd()
+	case "routes":
+		routesCmd()
+	case "migrate":
+		migrateCmd()
+	case "doctor":
+		doctorCmd()
+	case "outbox":
+		outboxCmd()
+	case "studio":
+		studioCmd()
 	case "version":
 		fmt.Println("1.0.1")
 	// case "help-routes":
@@ -32,6 +54,276 @@ func main() {
 	default:
 		log.Fatalf("Invalid command: '%s'", os.Args[1])
 	}
+}
+
+// outboxCmd inspects and operates on the durable outbound webhook
+// outbox. Supports:
+//
+//	wave outbox list   --db <path>            (live + DLQ counts)
+//	wave outbox dlq    --db <path>            (recent dead-lettered)
+//	wave outbox replay --db <path> --id N     (single)
+//	wave outbox replay --db <path> --all      (drain DLQ)
+func outboxCmd() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave outbox list|dlq|replay --db <path> [--id N | --all]")
+	}
+	sub := os.Args[2]
+	fs := flag.NewFlagSet("outbox", flag.ExitOnError)
+	dbPath := fs.String("db", "", "path to SQLite outbox DB")
+	id := fs.Int64("id", 0, "single DLQ entry id (replay only)")
+	all := fs.Bool("all", false, "replay every DLQ entry")
+	if err := fs.Parse(os.Args[3:]); err != nil {
+		log.Fatal(err)
+	}
+	if *dbPath == "" {
+		log.Fatal("outbox: --db is required")
+	}
+	db, err := sql.Open("sqlite3", *dbPath)
+	if err != nil {
+		log.Fatalf("outbox: open: %v", err)
+	}
+	defer db.Close()
+	store, err := outbox.NewSQLiteStore(db)
+	if err != nil {
+		log.Fatalf("outbox: store: %v", err)
+	}
+	ctx := context.Background()
+	switch sub {
+	case "list":
+		live, _ := store.Pending(ctx)
+		dlq, _ := store.DLQList(ctx, 1000)
+		fmt.Printf("live queue: %d\nDLQ:        %d\n", live, len(dlq))
+	case "dlq":
+		entries, err := store.DLQList(ctx, 100)
+		if err != nil {
+			log.Fatalf("outbox dlq: %v", err)
+		}
+		if len(entries) == 0 {
+			fmt.Println("DLQ empty")
+			return
+		}
+		for _, d := range entries {
+			fmt.Printf("%-6d  %-40s  attempts=%d  err=%q\n", d.ID, d.URL, d.Attempts, d.LastError)
+		}
+	case "replay":
+		if *all {
+			n, err := store.ReplayAll(ctx)
+			if err != nil {
+				log.Fatalf("outbox replay --all: %v", err)
+			}
+			fmt.Printf("replayed %d entries\n", n)
+			return
+		}
+		if *id == 0 {
+			log.Fatal("outbox replay: --id N or --all required")
+		}
+		newID, err := store.Replay(ctx, *id)
+		if err != nil {
+			log.Fatalf("outbox replay %d: %v", *id, err)
+		}
+		fmt.Printf("replayed dlq=%d → live=%d\n", *id, newID)
+	default:
+		log.Fatalf("outbox: unknown sub %q (want list|dlq|replay)", sub)
+	}
+}
+
+// doctorCmd runs validate + live connectivity checks (HTTP plugins,
+// OIDC discovery, SQLite ping, referenced files) against a config and
+// prints a human-readable report. Exits non-zero when any check fails.
+func doctorCmd() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave doctor <path/to/server.yaml>")
+	}
+	path, err := filepath.Abs(os.Args[2])
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	srv, err := servers.NewServer(path)
+	if err != nil {
+		log.Fatalf("doctor: %v", err.Error())
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	results, failures := srv.RunDoctor(ctx)
+
+	icon := func(status string) string {
+		switch status {
+		case "ok":
+			return "OK   "
+		case "warn":
+			return "WARN "
+		case "fail":
+			return "FAIL "
+		default:
+			return "?    "
+		}
+	}
+	for _, r := range results {
+		fmt.Printf("%s %-30s  %s\n", icon(r.Status), r.Name, r.Message)
+	}
+	fmt.Printf("\n%d checks, %d failures\n", len(results), failures)
+	if failures > 0 {
+		os.Exit(1)
+	}
+}
+
+// migrateCmd applies or reverses SQLite migrations stored as numbered
+// .up.sql / .down.sql files in a directory.
+//
+//	wave migrate up   --db ./data.db --dir ./migrations
+//	wave migrate down --db ./data.db --dir ./migrations
+//
+// Idempotent: applied state lives in the `_wave_migrations`
+// table inside the same DB.
+func migrateCmd() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave migrate up|down --db <path> --dir <migrations-dir>")
+	}
+	direction := os.Args[2]
+	if direction != "up" && direction != "down" {
+		log.Fatalf("migrate: unknown direction %q (want up|down)", direction)
+	}
+	fs := flag.NewFlagSet("migrate", flag.ExitOnError)
+	dbPath := fs.String("db", "", "path to SQLite database file")
+	dir := fs.String("dir", "", "migrations directory")
+	if err := fs.Parse(os.Args[3:]); err != nil {
+		log.Fatal(err)
+	}
+	if *dbPath == "" || *dir == "" {
+		log.Fatal("migrate: --db and --dir are required")
+	}
+	db, err := sql.Open("sqlite3", *dbPath)
+	if err != nil {
+		log.Fatalf("migrate: open db: %v", err)
+	}
+	defer db.Close()
+
+	switch direction {
+	case "up":
+		ran, err := migrate.Up(db, *dir)
+		if err != nil {
+			log.Fatalf("migrate up: %v", err)
+		}
+		if len(ran) == 0 {
+			fmt.Println("nothing to migrate")
+			return
+		}
+		for _, m := range ran {
+			fmt.Printf("applied %04d_%s\n", m.Version, m.Name)
+		}
+	case "down":
+		m, err := migrate.Down(db, *dir)
+		if err != nil {
+			log.Fatalf("migrate down: %v", err)
+		}
+		if m == nil {
+			fmt.Println("nothing to roll back")
+			return
+		}
+		fmt.Printf("rolled back %04d_%s\n", m.Version, m.Name)
+	}
+}
+
+// routesCmd prints the route table of a config without booting the
+// server. Useful for CI checks ("does this config still expose the
+// expected endpoints?") and quick inspection. Output supports two
+// formats: --format=table (default, human-readable) and --format=json
+// (machine-readable, identical shape to the /openapi.json route entries).
+func routesCmd() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave routes <path/to/server.yaml> [--format=table|json]")
+	}
+	format := "table"
+	for _, a := range os.Args[3:] {
+		if strings.HasPrefix(a, "--format=") {
+			format = strings.TrimPrefix(a, "--format=")
+		}
+	}
+	path, err := filepath.Abs(os.Args[2])
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	srv, err := servers.NewServer(path)
+	if err != nil {
+		log.Fatalf("routes: %v", err.Error())
+	}
+	// Materialize the raw routes (loadConfig doesn't do this — Start does).
+	rows, err := srv.RouteSummaries()
+	if err != nil {
+		log.Fatalf("routes: %v", err.Error())
+	}
+	switch format {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(rows)
+	default:
+		fmt.Printf("%-7s  %-40s  %-15s  %s\n", "METHOD", "PATH", "TYPE", "AUTH")
+		for _, r := range rows {
+			method := r.Method
+			if method == "" {
+				method = "GET"
+			}
+			fmt.Printf("%-7s  %-40s  %-15s  %s\n",
+				method, r.Path, r.Type, strings.Join(r.Auth, ","))
+		}
+		fmt.Printf("\n%d routes\n", len(rows))
+	}
+}
+
+// initCmd writes a starter project to disk. Usage:
+//
+//	wave init <template> <dir> [--force]
+//	wave init list
+func initCmd() {
+	if len(os.Args) >= 3 && os.Args[2] == "list" {
+		fmt.Println("Available templates:")
+		for _, t := range scaffold.All() {
+			fmt.Printf("  %-16s %s\n", t.Name, t.Description)
+		}
+		return
+	}
+	if len(os.Args) < 4 {
+		log.Fatal("Usage: wave init <template> <dir> [--force]\n       wave init list")
+	}
+	name := os.Args[2]
+	dir := os.Args[3]
+	force := false
+	for _, a := range os.Args[4:] {
+		if a == "--force" || a == "-f" {
+			force = true
+		}
+	}
+	tpl, ok := scaffold.Get(name)
+	if !ok {
+		log.Fatalf("unknown template %q (try `wave init list`)", name)
+	}
+	if err := scaffold.Render(tpl, dir, force); err != nil {
+		log.Fatalf("init: %v", err.Error())
+	}
+	fmt.Printf("scaffolded %s into %s\n", name, dir)
+}
+
+// validate loads a config file and checks that every route has a known
+// type, every plugin route names a registered plugin, every stream-publish
+// route names a registered connection, and that every plugin/connection
+// validates. Exits 0 on success, 1 on first error — suitable for CI.
+func validate() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave validate <path/to/server.yaml>")
+	}
+	path, err := filepath.Abs(os.Args[2])
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	srv, err := servers.NewServer(path)
+	if err != nil {
+		log.Fatalf("validate: %v", err.Error())
+	}
+	if err := srv.ValidateConfig(); err != nil {
+		log.Fatalf("validate: %v", err.Error())
+	}
+	fmt.Println("ok")
 }
 
 func servelive() {
@@ -181,4 +473,21 @@ func loadServer() (*servers.Server, error) {
 
 	return server, nil
 
+}
+
+// studioCmd boots the multi-project Studio web UI.
+//
+//	wave studio [--host 127.0.0.1] [--port 8081] [--data-dir ~/.wave] [--no-browser]
+func studioCmd() {
+	fs := flag.NewFlagSet("studio", flag.ExitOnError)
+	host := fs.String("host", "127.0.0.1", "bind host (127.0.0.1 only by default)")
+	port := fs.Int("port", 8081, "studio HTTP port")
+	dataDir := fs.String("data-dir", "~/.wave", "studio state directory")
+	noBrowser := fs.Bool("no-browser", false, "do not auto-open the URL in a browser")
+	if err := fs.Parse(os.Args[2:]); err != nil {
+		log.Fatal(err)
+	}
+	if err := studio.Serve(*host, *port, *dataDir, !*noBrowser); err != nil {
+		log.Fatalf("studio: %v", err)
+	}
 }

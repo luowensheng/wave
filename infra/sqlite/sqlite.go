@@ -2,9 +2,9 @@ package sqlite
 
 import (
 	"database/sql"
-	"easyserver/domain"
-	"easyserver/io/http/contentloader"
-	"easyserver/infra/common"
+	"wave/domain"
+	"wave/io/http/contentloader"
+	"wave/infra/common"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -821,7 +821,7 @@ func (ref *SQLiteStorageRef) Execute(sqlStatement string, data *contentloader.Da
 
 	renderedSQL := removeEmptyLines(rendered.String())
 
-	fmt.Println("RENDERED: \n```", renderedSQL, "\n```\n\n")
+	fmt.Println("RENDERED:\n```", renderedSQL, "\n```")
 
 	result, err := ref.executeSQL(renderedSQL, params...)
 	if err != nil {

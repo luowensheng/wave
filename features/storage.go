@@ -1,6 +1,6 @@
 package features
 
-import "easyserver/domain"
+import "wave/domain"
 
 // Storage is the capability of persisting and querying domain data
 // against a named storage backend (sqlite, filesystem, ...). The

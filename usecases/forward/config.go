@@ -29,22 +29,51 @@ func (c *Config) CreateRoute(method, path string, data map[string]string) (http.
 		return nil, fmt.Errorf("missing forward url")
 	}
 
-	targetURL, err := url.Parse(strings.TrimSuffix(forwardURL, "/"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid forward URL: %w", err)
+	// If forward_url contains {key} placeholders, the target URL is
+	// resolved per-request via r.PathValue (Go 1.22 ServeMux). Otherwise
+	// we keep the cheap parse-once path for backward compat.
+	templated := strings.Contains(forwardURL, "{")
+	placeholderKeys := extractPlaceholders(forwardURL)
+
+	var staticTarget *url.URL
+	if !templated {
+		var err error
+		staticTarget, err = url.Parse(strings.TrimSuffix(forwardURL, "/"))
+		if err != nil {
+			return nil, fmt.Errorf("invalid forward URL: %w", err)
+		}
 	}
 
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			prefix := path
+			var targetURL *url.URL
+			if templated {
+				resolved := forwardURL
+				for _, key := range placeholderKeys {
+					resolved = strings.ReplaceAll(resolved, "{"+key+"}", req.PathValue(key))
+				}
+				var err error
+				targetURL, err = url.Parse(strings.TrimSuffix(resolved, "/"))
+				if err != nil {
+					log.Printf("templated forward URL invalid after substitution: %q (%v)", resolved, err)
+					return
+				}
+			} else {
+				targetURL = staticTarget
+			}
+
 			targetURLPath := targetURL.Path
 			if targetURLPath == "" {
 				targetURLPath = "/"
 			}
 
-			log.Printf("targetURLPath='%s' req.URL.Path='%s' prefix='%s' strings.TrimPrefix(req.URL.Path, prefix)='%s'", targetURLPath, req.URL.Path, prefix, strings.TrimPrefix(req.URL.Path, prefix))
-
-			urlPath, _ := url.JoinPath(targetURLPath, strings.TrimPrefix(req.URL.Path, prefix))
+			// For templated routes the target already contains the full
+			// path the user wants — don't re-append the request suffix.
+			urlPath := targetURLPath
+			if !templated {
+				urlPath, _ = url.JoinPath(targetURLPath, strings.TrimPrefix(req.URL.Path, prefix))
+			}
 
 			req.URL.Scheme = targetURL.Scheme
 			req.URL.Host = targetURL.Host
@@ -78,6 +107,30 @@ func (c *Config) CreateRoute(method, path string, data map[string]string) (http.
 	return func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 	}, nil
+}
+
+// extractPlaceholders pulls `{key}` names out of a templated URL.
+// Order-preserving + duplicate-removing so we touch each PathValue
+// once per request.
+func extractPlaceholders(s string) []string {
+	var keys []string
+	seen := map[string]bool{}
+	for {
+		i := strings.IndexByte(s, '{')
+		if i < 0 {
+			return keys
+		}
+		j := strings.IndexByte(s[i:], '}')
+		if j < 0 {
+			return keys
+		}
+		key := s[i+1 : i+j]
+		if key != "" && !seen[key] {
+			seen[key] = true
+			keys = append(keys, key)
+		}
+		s = s[i+j+1:]
+	}
 }
 
 // flushingWriter is an auto-flushing writer.

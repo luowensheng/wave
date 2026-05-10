@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"easyserver/infra/common"
-	"easyserver/infra/logger/loglevel"
+	"wave/infra/common"
+	"wave/infra/logger/loglevel"
 	"time"
 )
 

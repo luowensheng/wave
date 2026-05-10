@@ -1,0 +1,7 @@
+{
+  "name": "echo",
+  "kind": "handler",
+  "version": "0.1.0",
+  "description": "Reference handler-kind plugin: echoes the request back.",
+  "author": "wave"
+}

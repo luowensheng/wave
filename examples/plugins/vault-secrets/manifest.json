@@ -1,0 +1,7 @@
+{
+  "name": "vault",
+  "kind": "secrets",
+  "version": "0.1.0",
+  "description": "Reference secrets-kind plugin: resolves URIs against a HashiCorp Vault KV-v2 backend.",
+  "author": "wave"
+}

@@ -1,6 +1,6 @@
-# easyserver — Developer Walkthrough
+# wave — Developer Walkthrough
 
-easyserver is a configuration-driven HTTP server. You describe your server in a
+wave is a configuration-driven HTTP server. You describe your server in a
 YAML file (`commands.yaml`) and run it with one command. It handles static
 files, file serving, API proxying, HTML templates, authentication, SQLite/
 filesystem storage, process execution, and more — with no code required for the
@@ -25,7 +25,7 @@ go run ./orchestrator serve commands.yaml --host 0.0.0.0 --port 8080
 ## Project Layout (VHCO Architecture)
 
 ```
-easyserver/
+wave/
 ├── domain/         # Pure types: User, Session, File, StorageConfig
 ├── features/       # Capability shapes (struct-of-funcs): Authentication, Storage, Bundling…
 ├── usecases/       # Per-route config DTOs + injected function-type declarations
@@ -415,7 +415,7 @@ routes:
 
 ### 7. Serving Built-in Frontend Dependencies
 
-Serve the bundled Vue / Axios helpers that ship with easyserver for building
+Serve the bundled Vue / Axios helpers that ship with wave for building
 quick admin UIs.
 
 ```yaml
@@ -499,7 +499,7 @@ routes:
 
 ## Auth: JSON API vs Browser Flows
 
-easyserver detects whether a request comes from a browser (by inspecting the
+wave detects whether a request comes from a browser (by inspecting the
 `Accept` and `User-Agent` headers) and adjusts its response automatically:
 
 | Scenario | Browser (GET) | API / POST |
@@ -590,7 +590,7 @@ https_config:
   common_name: "localhost"
 ```
 
-If the cert file doesn't exist, easyserver generates a self-signed RSA-2048
+If the cert file doesn't exist, wave generates a self-signed RSA-2048
 certificate valid for 1 year at startup. To use a real certificate, set
 `generate: false` and provide the paths.
 
@@ -616,7 +616,7 @@ routes:
 
 ## Architecture for Contributors
 
-easyserver follows **VHCO** (Vertical Hierarchy, Closed-world Operations). The
+wave follows **VHCO** (Vertical Hierarchy, Closed-world Operations). The
 rule is simple: each layer only imports from layers below it, and each layer
 declares the interfaces it needs itself (consumer-owned protocols).
 

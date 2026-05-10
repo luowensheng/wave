@@ -2,7 +2,7 @@ package render
 
 import (
 	"bytes"
-	"easyserver/infra/format"
+	"wave/infra/format"
 	"encoding/base64"
 	"fmt"
 	"html"

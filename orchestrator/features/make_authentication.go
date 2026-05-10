@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"easyserver/domain"
-	capfeatures "easyserver/features"
-	authfeature "easyserver/orchestrator/features/auth"
+	"wave/domain"
+	capfeatures "wave/features"
+	authfeature "wave/orchestrator/features/auth"
 )
 
 // MakeAuthentication returns a populated features.Authentication by closing

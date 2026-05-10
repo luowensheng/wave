@@ -1,0 +1,143 @@
+# Reference example exercising most of wave's surface.
+# Run with:
+#
+#   STRIPE_WEBHOOK_SECRET=whsec_test \
+#   FWDAUTH_URL=https://example.com/api/verify \
+#   wave serve examples/full/server.yaml
+#
+# Then visit:
+#   /admin/             — live dashboard
+#   /docs               — OpenAPI HTML viewer
+#   /openapi.json       — machine-readable spec
+#   /metrics            — Prometheus text
+#   /api/streams.json   — stream-publish discovery
+#   /healthz /readyz    — probes
+
+default:
+  host: localhost
+  port: 8080
+
+env:
+  STRIPE_WEBHOOK_SECRET: { description: "Stripe webhook signing secret" }
+  FWDAUTH_URL:           { description: "External auth verification endpoint", default: "" }
+
+# Durable outbound webhook outbox — drains on a background worker,
+# survives restarts, dead-letters after retries are exhausted.
+outbox_db: ./outbox.db
+
+# In-process scheduled jobs — invoke plugins on a cadence.
+schedule:
+  - name: nightly_audit
+    plugin: jq
+    trigger_key: digest
+    at: "02:30"
+    body: { type: "nightly" }
+
+plugins:
+  jq:
+    transport: process
+    command: "jq ."     # echoes its stdin (toy resolver for examples)
+    timeout: 2s
+    retries: 3
+    retry_backoff: 100ms
+  api_proxy:
+    transport: http
+    address: "https://httpbin.org/anything"
+    timeout: 5s
+
+connections:
+  payments:
+    type: auto                     # SSE for EventSource clients, WS for browser WS
+    subscribe_path: /events/payments
+    subscribe_cors_origins: ["*"]
+    keep_alive_interval: 15s
+    buffer_size: 64
+  deploys:
+    type: ws
+    subscribe_path: /ws/deploys
+
+routes:
+  # ── shell-style instant API (jq pipeline). NOTE: type:process is
+  # preserved + valuable for quick scripts.
+  - path: /shell/upcase
+    method: GET
+    type: process
+    process:
+      command: "echo 'hello' | tr a-z A-Z"
+
+  # ── plugin-backed JSON-in/JSON-out RPC.
+  - path: /plugins/echo/{id}
+    method: POST
+    type: plugin
+    plugin:
+      name: jq
+      trigger_key: echo
+      response_output: { echoed: response }
+    cache:   { ttl: 30s, key_by_auth: false }
+    circuit: { failure_threshold: 5, cooldown: 30s }
+    rate_limit_rps: 10
+    rate_limit_burst: 20
+
+  # ── Stripe webhook fanned out to the `payments` connection.
+  # HMAC-verified, durable forward to an audit endpoint.
+  - path: /webhooks/stripe
+    method: POST
+    type: stream-publish
+    webhook_sig:
+      provider: stripe
+      secret: "${ENV:STRIPE_WEBHOOK_SECRET}"
+      tolerance_sec: 300
+    stream-publish:
+      connection: payments
+      route_id: payment_events
+      event_type: payment
+      output:
+        payment_id: response.id
+        amount:     response.amount
+        currency:   response.currency
+      static_meta:
+        source: stripe
+      forward_url: https://audit-logger.internal/ingest
+      forward_sign:
+        provider: generic
+        secret: "${ENV:STRIPE_WEBHOOK_SECRET}"
+        header: X-Audit-Sig
+        algorithm: sha256
+        header_prefix: "sha256="
+
+  # ── upstream-fronting forward route with templated path params.
+  - path: /things/{id}
+    method: GET
+    type: forward
+    forward:
+      forward_url: https://httpbin.org/anything/{id}
+
+  # ── GraphQL endpoint dispatching to the jq plugin (toy resolver).
+  - path: /graphql
+    method: POST
+    type: graphql
+    graphql: { plugin: jq }
+
+  # ── upstream-protected route via forwardauth (Authelia/oauth2-proxy).
+  - path: /private/protected
+    method: GET
+    type: file
+    file: { filepath: ./protected.html }
+    forward_auth:
+      url: "${ENV:FWDAUTH_URL}"
+      response_headers: ["X-User", "X-Email"]
+      trust_forwarded_for: true
+
+  # ── inline JSON-Schema validation on the request body.
+  - path: /api/orders
+    method: POST
+    type: api
+    api:
+      request: { method: POST, url: "https://httpbin.org/post" }
+    request_schema:
+      inline:
+        type: object
+        required: [sku, qty]
+        properties:
+          sku: { type: string, minLength: 3, maxLength: 32 }
+          qty: { type: integer, minimum: 1, maximum: 1000 }

@@ -1,0 +1,51 @@
+# /etc/systemd/system/wave.service
+#
+#   sudo install -m 0755 ./wave /usr/local/bin/
+#   sudo install -m 0644 ./server.yaml /etc/wave/server.yaml
+#   sudo cp deploy/systemd/wave.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now wave
+
+[Unit]
+Description=wave
+Documentation=https://github.com/yourorg/wave
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wave
+Group=wave
+ExecStart=/usr/local/bin/wave serve /etc/wave/server.yaml --host 0.0.0.0 --port 8080
+EnvironmentFile=-/etc/wave/wave.env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15           # matches the in-process drain budget
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+# Hardening — see systemd.exec(5).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+PrivateUsers=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+# Allow read-write access to data directories that wave may need.
+ReadWritePaths=/var/lib/wave
+
+[Install]
+WantedBy=multi-user.target

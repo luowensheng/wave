@@ -1,11 +1,11 @@
-// ./easyserver/auth/auth_manager.go
+// ./wave/auth/auth_manager.go
 package auth
 
 import (
 	"context"
-	"easyserver/infra/common"
-	infrajwt "easyserver/infra/jwt"
-	"easyserver/infra/users"
+	"wave/infra/common"
+	infrajwt "wave/infra/jwt"
+	"wave/infra/users"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -213,6 +213,12 @@ func (am *AuthManager) validateSignIn(r *http.Request) (string, error) {
 }
 
 func (am *AuthManager) Login(form LoginForm, auth string) *LoginResponse {
+	return am.LoginWithRequest(form, auth, nil)
+}
+
+// LoginWithRequest is the request-aware Login. r may be nil (callers that
+// have no request context, e.g. tests, just don't get plugin headers).
+func (am *AuthManager) LoginWithRequest(form LoginForm, auth string, r *http.Request) *LoginResponse {
 	config, found := am.configs[auth]
 	if !found {
 		return &LoginResponse{
@@ -220,6 +226,12 @@ func (am *AuthManager) Login(form LoginForm, auth string) *LoginResponse {
 			Error:   fmt.Sprintf("auth config not found: %s", auth),
 			Code:    "config_not_found",
 		}
+	}
+
+	// Plugin-backed auth: dispatch to the bridge before the
+	// username/password validation that built-in auth requires.
+	if strings.EqualFold(config.Type, "plugin") {
+		return am.pluginAuthenticate(form, config, r)
 	}
 
 	if form.Username == "" || form.Password == "" {
@@ -451,6 +463,12 @@ func (am *AuthManager) Logout(r *http.Request, auth string) *LogoutResponse {
 			Error:   fmt.Sprintf("Config not found: %s", auth),
 			Code:    "config_not_found",
 		}
+	}
+
+	// Plugin-backed auth: best-effort plugin logout, then fall through
+	// to the normal local-session revoke + cookie clear.
+	if strings.EqualFold(config.Type, "plugin") {
+		am.pluginLogout(r, config)
 	}
 
 	tokenString, err := am.extractToken(r, config)

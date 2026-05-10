@@ -13,6 +13,7 @@ commands:
 
     script: |
         set -e
+        cd "{{CWD}}/orchestrator"
         export CC="{{if and (eq .os `windows`) (eq .arch `amd64`)}}zig cc -target x86_64-windows-gnu{{else if and (eq .os `linux`) (eq .arch `amd64`)}}zig cc -target x86_64-linux-gnu{{else if and (eq .os `linux`) (eq .arch `arm64`)}}zig cc -target aarch64-linux-gnu{{else if and (eq .os `darwin`) (eq .arch `arm64`)}}clang{{end}}"
 
 
@@ -24,21 +25,21 @@ commands:
 
   build_windows:
     script: |
-      {{Run}} build --os windows --arch amd64 --output "./builds/windows/easyserver"
+      {{Run}} build --os windows --arch amd64 --output "{{CWD}}/builds/windows/wave"
 
   build_mac:
     script: |
-      {{Run}} build --os darwin --arch arm64 --output "./builds/mac/easyserver"
-      bman remove easyserver
-      bman add "./builds/mac/easyserver"
+      {{Run}} build --os darwin --arch arm64 --output "{{CWD}}/builds/mac/wave"
+      bman remove wave
+      bman add "{{CWD}}/builds/mac/wave"
 
   build_linux:
     script: |
-      {{Run}} build --os linux --arch amd64 --output "./builds/linux/easyserver"
+      {{Run}} build --os linux --arch amd64 --output "{{CWD}}/builds/linux/wave"
 
   build_linux-arm:
     script: |
-      {{Run}} build --os linux --arch arm64 --output "./builds/linux-arm/easyserver"
+      {{Run}} build --os linux --arch arm64 --output "{{CWD}}/builds/linux-arm/wave"
 
   build_all:
     script: |

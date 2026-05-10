@@ -7,14 +7,16 @@ package usecases
 import (
 	"net/http"
 
-	authfeature "easyserver/orchestrator/features/auth"
-	storagefeature "easyserver/orchestrator/features/storage"
+	"wave/infra/plugins"
+	"wave/infra/plugins/kinds"
+	authfeature "wave/orchestrator/features/auth"
+	storagefeature "wave/orchestrator/features/storage"
 
-	authlg "easyserver/usecases/auth_login"
-	authlo "easyserver/usecases/auth_logout"
-	authsg "easyserver/usecases/auth_signup"
-	servefile "easyserver/usecases/serve_file"
-	storageaccess "easyserver/usecases/storage_access"
+	authlg "wave/usecases/auth_login"
+	authlo "wave/usecases/auth_logout"
+	authsg "wave/usecases/auth_signup"
+	servefile "wave/usecases/serve_file"
+	storageaccess "wave/usecases/storage_access"
 )
 
 // WireAll binds all package-level function variables in usecases/* to
@@ -31,8 +33,7 @@ func WireAll() {
 // ── auth_login ────────────────────────────────────────────────────────────────
 
 func wireAuthLogin() {
-	authlg.LoginFn = func(username, password, authConfigName string) *authlg.LoginResponse {
-		r := authfeature.Login(authfeature.LoginForm{Username: username, Password: password}, authConfigName)
+	convert := func(r *authfeature.LoginResponse) *authlg.LoginResponse {
 		if r == nil {
 			return &authlg.LoginResponse{Success: false, Error: "login failed", Code: "internal_error"}
 		}
@@ -47,12 +48,19 @@ func wireAuthLogin() {
 			Value:         r.Value,
 			TokenDuration: r.TokenDuration,
 			RedirectTo:    r.RedirectTo,
+			ExtraCookies:  r.ExtraCookies,
 		}
 		if r.User != nil {
 			out.UserID = r.User.ID
 			out.Username = r.User.Username
 		}
 		return out
+	}
+	authlg.LoginFn = func(username, password, authConfigName string) *authlg.LoginResponse {
+		return convert(authfeature.Login(authfeature.LoginForm{Username: username, Password: password}, authConfigName))
+	}
+	authlg.LoginFnWithRequest = func(username, password, authConfigName string, r *http.Request) *authlg.LoginResponse {
+		return convert(authfeature.LoginWithRequest(authfeature.LoginForm{Username: username, Password: password}, authConfigName, r))
 	}
 }
 
@@ -132,8 +140,19 @@ func wireAuthLogout() {
 // ── storage_access ────────────────────────────────────────────────────────────
 
 func wireStorage() {
+	// Snapshot plugin-backed storage backends once at boot so per-request
+	// lookups don't take the registry lock or rebuild adapters. Built-in
+	// names (Config.Storage) take precedence so existing setups are
+	// untouched; plugin names fill in for anything else.
+	storagePlugins := kinds.LoadStorage(plugins.Default())
 	storageaccess.GetStorageFn = func(name string) (storageaccess.StorageRef, bool) {
-		return storagefeature.GetFromStorage(name)
+		if ref, ok := storagefeature.GetFromStorage(name); ok {
+			return ref, true
+		}
+		if p, ok := storagePlugins[name]; ok {
+			return &kinds.StorageRefAdapter{Plugin: p}, true
+		}
+		return nil, false
 	}
 }
 

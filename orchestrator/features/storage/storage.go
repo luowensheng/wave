@@ -4,10 +4,10 @@
 package storage
 
 import (
-	"easyserver/domain"
-	"easyserver/infra/filesystem"
-	"easyserver/infra/sqlite"
-	"easyserver/io/http/contentloader"
+	"wave/domain"
+	"wave/infra/filesystem"
+	"wave/infra/sqlite"
+	"wave/io/http/contentloader"
 	"fmt"
 )
 

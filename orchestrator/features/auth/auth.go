@@ -1,11 +1,11 @@
-// ./easyserver/auth/auth.go
+// ./wave/auth/auth.go
 package auth
 
 import (
-	"easyserver/domain"
-	"easyserver/infra/cookies"
-	infrajwt "easyserver/infra/jwt"
-	"easyserver/infra/sessions"
+	"wave/domain"
+	"wave/infra/cookies"
+	infrajwt "wave/infra/jwt"
+	"wave/infra/sessions"
 	"net/http"
 	"os"
 	"strings"
@@ -18,6 +18,27 @@ type Session = domain.Session
 type Claims = infrajwt.Claims
 
 type ResponseRenderer func(w http.ResponseWriter, r *http.Request, data interface{}) error
+
+// AuthOAuthConfig is the YAML shape consumed by oauth_bridge.go to
+// build a per-AuthConfig oauth.Provider at boot. Field names mirror
+// infra/oauth.Config.
+type AuthOAuthConfig struct {
+	Provider     string   `json:"provider,omitempty" yaml:"provider,omitempty"`
+	ClientID     string   `json:"client_id,omitempty" yaml:"client_id,omitempty"`
+	ClientSecret string   `json:"client_secret,omitempty" yaml:"client_secret,omitempty"`
+	Scopes       []string `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+
+	// Generic provider only.
+	AuthorizeURL string `json:"authorize_url,omitempty" yaml:"authorize_url,omitempty"`
+	TokenURL     string `json:"token_url,omitempty" yaml:"token_url,omitempty"`
+	UserinfoURL  string `json:"userinfo_url,omitempty" yaml:"userinfo_url,omitempty"`
+
+	// Apple-specific.
+	AppleTeamID         string `json:"apple_team_id,omitempty" yaml:"apple_team_id,omitempty"`
+	AppleKeyID          string `json:"apple_key_id,omitempty" yaml:"apple_key_id,omitempty"`
+	ApplePrivateKeyPath string `json:"apple_private_key_path,omitempty" yaml:"apple_private_key_path,omitempty"`
+	ApplePrivateKeyPEM  string `json:"apple_private_key_pem,omitempty" yaml:"apple_private_key_pem,omitempty"`
+}
 
 type DefaultLogin struct {
 	Username string `json:"username" yaml:"username"`
@@ -47,6 +68,23 @@ type AuthConfig struct {
 	ForwardToEndpoint    string            `json:"forward_to_endpoint" yaml:"forward_to_endpoint"`
 	Params               map[string]string `json:"params" yaml:"params"`
 	DefaultLogins        []DefaultLogin    `json:"default_logins" yaml:"default_logins"`
+
+	// OIDC-specific fields. Populated when Type == "oidc". The verifier
+	// itself is built once at boot and stashed in the package-level
+	// oidcVerifiers map (see oidc_bridge.go).
+	Issuer   string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	ClientID string `json:"client_id,omitempty" yaml:"client_id,omitempty"`
+
+	// OAuth-specific fields. Populated when Type == "oauth". The
+	// resolved oauth.Provider is cached at boot in oauth_bridge.go.
+	OAuth *AuthOAuthConfig `json:"oauth,omitempty" yaml:"oauth,omitempty"`
+
+	// Plugin-specific fields. Populated when Type == "plugin".
+	// Names a plugin in the top-level `plugins:` map (kind: auth).
+	// The orchestrator continues to own sessions, cookies, and JWTs;
+	// the plugin only provides identity (Authenticate / RefreshClaims /
+	// Logout). Resolved at boot in plugin_bridge.go.
+	Plugin string `json:"plugin,omitempty" yaml:"plugin,omitempty"`
 
 	// In-memory default user store
 	defaultUsers map[string]*User `json:"-" yaml:"-"`
@@ -95,6 +133,11 @@ type LoginResponse struct {
 	TokenDuration int               `json:"token_duration,omitempty"`
 	User          *PublicUser       `json:"user,omitempty"`
 	RedirectTo    string            `json:"redirect_to,omitempty"`
+	// ExtraCookies are appended verbatim by plugin-backed auth flows
+	// (e.g. SAML RelayState). The orchestrator-owned auth cookie is
+	// still emitted via Name/Value; ExtraCookies are written *in
+	// addition* to it.
+	ExtraCookies []*http.Cookie `json:"-"`
 }
 
 type LogoutResponse struct {
@@ -162,6 +205,19 @@ func InitAuthManager(authConfig map[string]*AuthConfig) error {
 	if err != nil {
 		return err
 	}
+	// Build OIDC verifiers (one per `type: oidc` entry). Boot-time
+	// errors fail fast — the IdP is unreachable / misconfigured.
+	if err := setupOIDC(authConfig); err != nil {
+		return err
+	}
+	// Build OAuth providers (one per `type: oauth` entry).
+	if err := setupOAuth(authConfig); err != nil {
+		return err
+	}
+	// Resolve auth-kind plugins (one per `type: plugin` entry).
+	if err := setupAuthPlugins(authConfig); err != nil {
+		return err
+	}
 	return nil
 }
 func ensureAuthManagerIsInitialized() {
@@ -183,6 +239,15 @@ func ValidateSignIn(r *http.Request) (string, error) {
 func Login(form LoginForm, auth string) *LoginResponse {
 	ensureAuthManagerIsInitialized()
 	return authManager.Login(form, auth)
+}
+
+// LoginWithRequest is the request-aware variant. Only plugin-backed auth
+// (Type == "plugin") needs the underlying *http.Request to thread headers
+// and cookies through to the plugin; for everything else this is
+// equivalent to Login.
+func LoginWithRequest(form LoginForm, auth string, r *http.Request) *LoginResponse {
+	ensureAuthManagerIsInitialized()
+	return authManager.LoginWithRequest(form, auth, r)
 }
 
 func Signup(form SignupForm, auth string) *LoginResponse {

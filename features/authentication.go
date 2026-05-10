@@ -1,7 +1,7 @@
 package features
 
 import (
-	"easyserver/domain"
+	"wave/domain"
 	"net/http"
 	"time"
 )

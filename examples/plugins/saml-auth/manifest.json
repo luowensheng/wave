@@ -1,0 +1,39 @@
+{
+  "name": "saml",
+  "kind": "auth",
+  "version": "0.1.0",
+  "description": "Reference auth-kind plugin: SAML 2.0 SP via crewjam/saml.",
+  "author": "wave",
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "SAML_IDP_METADATA_URL": {
+        "type": "string",
+        "description": "URL of the IdP metadata XML. Required."
+      },
+      "SAML_SP_ENTITY_ID": {
+        "type": "string",
+        "description": "SP entity ID (audience). Required."
+      },
+      "SAML_SP_ACS_URL": {
+        "type": "string",
+        "description": "Assertion Consumer Service URL on the orchestrator. Required."
+      },
+      "SAML_SP_CERT_PATH": {
+        "type": "string",
+        "description": "Path to the SP certificate (PEM). Required."
+      },
+      "SAML_SP_KEY_PATH": {
+        "type": "string",
+        "description": "Path to the SP private key (PEM). Required."
+      }
+    },
+    "required": [
+      "SAML_IDP_METADATA_URL",
+      "SAML_SP_ENTITY_ID",
+      "SAML_SP_ACS_URL",
+      "SAML_SP_CERT_PATH",
+      "SAML_SP_KEY_PATH"
+    ]
+  }
+}

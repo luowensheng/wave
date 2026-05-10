@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"easyserver/infra/render"
+	"wave/infra/render"
 )
 
 type Config struct {

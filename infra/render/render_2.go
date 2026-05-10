@@ -1,7 +1,7 @@
 package render
 
 import (
-	"easyserver/infra/format"
+	"wave/infra/format"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +17,7 @@ import (
 // 	"os"
 // 	"path/filepath"
 // 	"regexp"
-// 	"easyserver/infra/format"
+// 	"wave/infra/format"
 // 	"strings"
 // 	"text/template"
 // 	"unicode"

@@ -10,7 +10,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"easyserver/infra/render"
+	"wave/infra/inputs"
+	"wave/infra/render"
 )
 
 type Config struct {
@@ -43,19 +44,35 @@ type apiHandler struct {
 }
 
 func (h *apiHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	// Source the template scope. When the route declared `inputs:`,
+	// strict-mode kicks in: the template can ONLY reference declared
+	// inputs (already parsed + validated by the inputs middleware).
+	// Otherwise we fall back to the legacy behavior (whole JSON body
+	// → template scope) so existing configs keep working.
 	var requestData map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
+	if v := inputs.FromContext(r.Context()); len(v) > 0 {
+		requestData = v
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
 	}
 
+	// Substitute scope into both URL and body templates.
+	urlBuf, err := render.Render(h.config.Request.URL, requestData)
+	if err != nil {
+		log.Printf("URL template error: %v", err)
+		http.Error(w, "Invalid upstream URL template", http.StatusInternalServerError)
+		return
+	}
 	bodyBuf, err := render.Render(h.config.Request.Body, requestData)
 	if err != nil {
 		log.Printf("Template error : %v", err)
 		return
 	}
 
-	upstreamURL, err := url.Parse(h.config.Request.URL)
+	upstreamURL, err := url.Parse(urlBuf.String())
 	if err != nil {
 		http.Error(w, "Invalid upstream URL", http.StatusInternalServerError)
 		return

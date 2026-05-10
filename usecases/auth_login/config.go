@@ -7,7 +7,7 @@ import (
 	"strings"
 	texttemplate "text/template"
 
-	"easyserver/infra/render"
+	"wave/infra/render"
 )
 
 type Config struct {
@@ -43,11 +43,21 @@ type LoginResponse struct {
 	RedirectTo    string
 	UserID        int
 	Username      string
+	// ExtraCookies are written verbatim *in addition* to the
+	// orchestrator-issued auth cookie. Used by plugin-backed auth
+	// flows that need to install their own state (e.g. SAML
+	// RelayState).
+	ExtraCookies []*http.Cookie
 }
 
 // LoginFn is a function that performs login.
 // Inject this before using Config.CreateRoute.
 var LoginFn func(username, password, authConfigName string) *LoginResponse
+
+// LoginFnWithRequest is the request-aware variant. When set, the
+// handler prefers it over LoginFn so plugin-backed auth can see the
+// inbound headers and cookies. May be nil; LoginFn is the fallback.
+var LoginFnWithRequest func(username, password, authConfigName string, r *http.Request) *LoginResponse
 
 // ErrorContext is the data passed to error templates.
 type ErrorContext struct {
@@ -92,9 +102,12 @@ func (c *Config) CreateRoute(method, path string, data map[string]string) (http.
 		password := r.Form.Get(passwordField)
 
 		var response *LoginResponse
-		if LoginFn != nil {
+		switch {
+		case LoginFnWithRequest != nil:
+			response = LoginFnWithRequest(username, password, c.For, r)
+		case LoginFn != nil:
 			response = LoginFn(username, password, c.For)
-		} else {
+		default:
 			response = &LoginResponse{
 				Success: false,
 				Error:   "login not configured",
@@ -206,6 +219,11 @@ func (c *Config) setCookie(w http.ResponseWriter, r *http.Request, response *Log
 	}
 
 	http.SetCookie(w, cookie)
+	for _, extra := range response.ExtraCookies {
+		if extra != nil {
+			http.SetCookie(w, extra)
+		}
+	}
 }
 
 func (c *Config) redirectOnSuccess(w http.ResponseWriter, r *http.Request, response *LoginResponse) {

@@ -1,0 +1,7 @@
+{
+  "name": "otel",
+  "kind": "exporter",
+  "version": "0.1.0",
+  "description": "OpenTelemetry OTLP exporter (metrics + traces). Logs are stderr-JSON in v1.",
+  "author": "wave"
+}

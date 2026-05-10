@@ -3,7 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
-	"easyserver/infra/common"
+	"wave/infra/common"
 	"strings"
 )
 

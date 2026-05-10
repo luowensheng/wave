@@ -1,0 +1,10 @@
+{{- if not .Values.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wave.fullname" . }}-config
+  labels: {{ include "wave.labels" . | nindent 4 }}
+data:
+  server.yaml: |-
+{{ .Values.serverYaml | indent 4 }}
+{{- end }}

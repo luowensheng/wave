@@ -1,4 +1,4 @@
-module easyserver
+module wave
 
 go 1.24.1
 

@@ -1,0 +1,42 @@
+default:
+  host: localhost
+  port: 8080
+
+plugins:
+  echo:
+    transport: process
+    command: "./echo"
+    timeout: 5s
+
+connections:
+  payments:
+    type: sse
+    subscribe_path: /events/payments
+    buffer_size: 32
+    keep_alive_interval: 15s
+    subscribe_cors_origins:
+      - "*"
+
+routes:
+  - path: /echo
+    method: POST
+    type: plugin
+    plugin:
+      name: echo
+      trigger_key: hello
+      response_output:
+        echoed: response.echoed
+        trigger: response.trigger_key
+
+  - path: /webhooks/test
+    method: POST
+    type: stream-publish
+    stream-publish:
+      connection: payments
+      route_id: payment_events
+      event_type: payment
+      output:
+        payment_id: response.id
+        amount: response.amount
+      static_meta:
+        source: test

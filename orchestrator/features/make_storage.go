@@ -4,9 +4,9 @@ package features
 // features.Storage capability struct.
 
 import (
-	capfeatures "easyserver/features"
-	storagefeature "easyserver/orchestrator/features/storage"
-	"easyserver/io/http/contentloader"
+	capfeatures "wave/features"
+	storagefeature "wave/orchestrator/features/storage"
+	"wave/io/http/contentloader"
 )
 
 // MakeStorage returns a populated features.Storage by closing over

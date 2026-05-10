@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"easyserver/domain"
-	"easyserver/infra/common"
-	"easyserver/io/http/contentloader"
+	"wave/domain"
+	"wave/infra/common"
+	"wave/io/http/contentloader"
 	"strings"
 	"text/template"
 )

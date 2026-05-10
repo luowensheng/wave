@@ -1,0 +1,22 @@
+{
+  "name": "postgres",
+  "kind": "storage",
+  "version": "0.1.0",
+  "description": "Reference storage-kind plugin backed by PostgreSQL via pgx/v5.",
+  "author": "wave",
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "PG_DSN": {
+        "type": "string",
+        "description": "PostgreSQL connection string (e.g. postgres://user:pass@host:5432/db?sslmode=disable). Required."
+      },
+      "PG_MAX_CONNS": {
+        "type": "string",
+        "description": "Maximum size of the pgx connection pool. Defaults to 10.",
+        "default": "10"
+      }
+    },
+    "required": ["PG_DSN"]
+  }
+}

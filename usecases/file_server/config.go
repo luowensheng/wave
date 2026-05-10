@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "easyserver/infra/logger"
-	"easyserver/infra/render"
+	log "wave/infra/logger"
+	"wave/infra/render"
 )
 
 type Config struct {

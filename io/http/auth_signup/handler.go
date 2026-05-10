@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"easyserver/infra/render"
+	"wave/infra/render"
 )
 
 // SignupResult carries the outcome of a signup or login attempt.

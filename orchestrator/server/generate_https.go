@@ -1,6 +1,6 @@
 package servers
 
-import infrahttp "easyserver/infra/http"
+import infrahttp "wave/infra/http"
 
 // generateHTTPS delegates TLS certificate generation to the infra adapter.
 func generateHTTPS(config *HTTPSConfig) error {

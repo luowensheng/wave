@@ -5,7 +5,7 @@
 package sessions
 
 import (
-	"easyserver/domain"
+	"wave/domain"
 	"errors"
 	"fmt"
 	"sync"

@@ -1,7 +1,7 @@
 package servers
 
 import (
-	infrahttp "easyserver/infra/http"
+	infrahttp "wave/infra/http"
 	"net/http"
 )
 

@@ -1,0 +1,97 @@
+# Default values for wave.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/yourorg/wave
+  tag: ""        # defaults to .Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Pod-level config.
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits:   { cpu: 1000m, memory: 512Mi }
+
+# Probes hit wave's built-in /healthz and /readyz endpoints.
+livenessProbe:
+  path: /healthz
+  initialDelaySeconds: 5
+  periodSeconds: 10
+readinessProbe:
+  path: /readyz
+  initialDelaySeconds: 1
+  periodSeconds: 3
+
+# server.yaml is rendered into a ConfigMap. Override `serverYaml` to your
+# own config (or use the `existingConfigMap` field to mount one you
+# manage outside Helm).
+serverYaml: |
+  default:
+    host: 0.0.0.0
+    port: 8080
+  routes:
+    - path: /
+      method: GET
+      type: file
+      file: { filepath: /app/index.html }
+
+existingConfigMap: ""    # if set, overrides serverYaml above
+
+# Environment variables (e.g. JWT_SECRET, OIDC_*) sourced from k8s
+# Secret references — never inline secrets here.
+env: []
+# - name: OIDC_CLIENT_ID
+#   valueFrom:
+#     secretKeyRef: { name: wave-secrets, key: oidc_client_id }
+
+# Optional ingress.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: wave.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Pod disruption budget for safe rolling updates.
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# Horizontal pod autoscaler.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532          # distroless `nonroot` UID
+  fsGroup: 65532
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities: { drop: [ALL] }
+  readOnlyRootFilesystem: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Annotations + labels copied onto pods.
+podAnnotations: {}
+podLabels: {}
+
+# ServiceMonitor for kube-prometheus-stack scraping. Disabled by
+# default since not every cluster has Prometheus Operator installed.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s

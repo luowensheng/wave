@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wave.dev/schemas/server.json",
+  "title": "Wave server.yaml",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "default": {
+      "type": "object",
+      "properties": {
+        "host": {"type": "string"},
+        "port": {"type": "integer"}
+      }
+    },
+    "args": { "type": "object", "additionalProperties": { "$ref": "#/$defs/arg" } },
+    "env":  { "type": "object", "additionalProperties": { "$ref": "#/$defs/arg" } },
+    "auth": { "type": "object" },
+    "storage": { "type": "object" },
+    "build": { "type": "object" },
+    "https_config": { "type": "object" },
+    "ip_filter": {
+      "type": "object",
+      "properties": {
+        "ip_whitelist": {"type": "array", "items": {"type": "string"}},
+        "ip_blacklist": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "plugins": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/plugin" }
+    },
+    "connections": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/connection" }
+    },
+    "routes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/route" }
+    }
+  },
+  "$defs": {
+    "arg": {
+      "type": "object",
+      "properties": {
+        "default": {"type": ["string","null"]},
+        "description": {"type": "string"}
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "required": ["transport"],
+      "properties": {
+        "transport": {"enum": ["process","http","grpc","wasm"]},
+        "address": {"type": "string"},
+        "command": {"type": "string"},
+        "proto_service": {"type": "string"},
+        "wasm_module": {"type": "string"},
+        "wasm_capabilities": {"type": "array", "items": {"type": "string"}},
+        "timeout": {"type": "string"},
+        "env": {"type": "object", "additionalProperties": {"type": "string"}}
+      },
+      "allOf": [
+        { "if": {"properties": {"transport": {"const": "process"}}, "required": ["transport"]},
+          "then": {"required": ["command"]} },
+        { "if": {"properties": {"transport": {"const": "http"}}, "required": ["transport"]},
+          "then": {"required": ["address"]} }
+      ]
+    },
+    "connection": {
+      "type": "object",
+      "required": ["subscribe_path"],
+      "properties": {
+        "type": {"enum": ["sse","ws","auto",""]},
+        "subscribe_path": {"type": "string", "pattern": "^/"},
+        "subscribe_auth": {"type": "array", "items": {"type": "string"}},
+        "subscribe_cors_origins": {"type": "array", "items": {"type": "string"}},
+        "max_clients": {"type": "integer", "minimum": 1},
+        "buffer_size": {"type": "integer", "minimum": 1},
+        "keep_alive_interval": {"type": "string"},
+        "ping_interval": {"type": "string"}
+      }
+    },
+    "route": {
+      "type": "object",
+      "required": ["path","type"],
+      "properties": {
+        "path": {"type": "string"},
+        "method": {"type": "string"},
+        "methods": {"type": "array", "items": {"type": "string"}},
+        "type": {
+          "enum": ["static","file","forward","redirect","api","content",
+                   "auth-login","auth-signup","auth-logout","storage-access",
+                   "dependencies","process","file-server","plugin","stream-publish"]
+        },
+        "description": {"type": "string"},
+        "auth": {"type": "array", "items": {"type": "string"}},
+        "ip_whitelist": {"type": "array", "items": {"type": "string"}},
+        "ip_blacklist": {"type": "array", "items": {"type": "string"}},
+        "validate_csrf": {"type": "boolean"},
+        "include_csrf": {"type": "boolean"},
+        "plugin": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {"type": "string"},
+            "trigger_key": {"type": "string"},
+            "forward_body": {"type": "boolean"},
+            "include_headers": {"type": "array", "items": {"type": "string"}},
+            "transform_request": {"type": "boolean"},
+            "env_overrides": {"type": "object", "additionalProperties": {"type": "string"}},
+            "response_output": {"type": "object", "additionalProperties": {"type": "string"}},
+            "response_headers": {"type": "object", "additionalProperties": {"type": "string"}}
+          }
+        },
+        "stream-publish": {
+          "type": "object",
+          "required": ["connection"],
+          "properties": {
+            "connection": {"type": "string"},
+            "route_id": {"type": "string"},
+            "event_type": {"type": "string"},
+            "output": {"type": "object", "additionalProperties": {"type": "string"}},
+            "static_meta": {"type": "object", "additionalProperties": {"type": "string"}},
+            "exclude_fields": {"type": "array", "items": {"type": "string"}},
+            "forward_url": {"type": "string"}
+          }
+        }
+      },
+      "allOf": [
+        { "if": {"properties": {"type": {"const": "plugin"}}, "required": ["type"]},
+          "then": {"required": ["plugin"]} },
+        { "if": {"properties": {"type": {"const": "stream-publish"}}, "required": ["type"]},
+          "then": {"required": ["stream-publish"]} }
+      ]
+    }
+  }
+}

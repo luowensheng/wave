@@ -1,8 +1,8 @@
-// ./easyserver/auth/setup.go
+// ./wave/auth/setup.go
 package auth
 
 import (
-	infrajwt "easyserver/infra/jwt"
+	infrajwt "wave/infra/jwt"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,6 +28,8 @@ func (am *AuthManager) authenticate(r *http.Request, config *AuthConfig) *Authen
 		user, err = am.authenticateJWT(r, config)
 	case "api_key":
 		user, err = am.authenticateAPIKey(r, config)
+	case "oidc":
+		user, err = am.authenticateOIDC(r, config)
 	default:
 		err = fmt.Errorf("unsupported authentication type: %s", config.Type)
 	}

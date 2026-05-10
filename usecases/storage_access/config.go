@@ -1,6 +1,7 @@
 package storage_access
 
 import (
+	"wave/infra/inputs"
 	"fmt"
 	"io"
 	"log"
@@ -8,8 +9,8 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"easyserver/infra/render"
-	"easyserver/io/http/contentloader"
+	"wave/infra/render"
+	"wave/io/http/contentloader"
 )
 
 type Config struct {
@@ -57,24 +58,31 @@ func (c *Config) CreateRoute(method, path string, data map[string]string) (http.
 		var err error
 		var expectedContentType = c.ExpectedContentType
 
-		switch method {
-		case "POST", "PUT", "PATCH":
-			if r.Body == nil {
-				http.Error(w, "request body is required", http.StatusBadRequest)
-				return
-			}
-
-			dl, err = contentloader.GetDataLoader(expectedContentType, r)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-		default:
-			dl, err = contentloader.GetDataLoader("application/x-www-form-urlencoded", r)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
+		// Strict-scope path: when the route declared `inputs:`, the
+		// validated map is on the context. Build a DataLoader that
+		// exposes ONLY those keys so the SQL template can't reference
+		// anything outside the declared contract.
+		if v := inputs.FromContext(r.Context()); len(v) > 0 {
+			dl = contentloader.NewDataLoaderFromContentLoader(r,
+				contentloader.NewInputsLoader(v))
+		} else {
+			switch method {
+			case "POST", "PUT", "PATCH":
+				if r.Body == nil {
+					http.Error(w, "request body is required", http.StatusBadRequest)
+					return
+				}
+				dl, err = contentloader.GetDataLoader(expectedContentType, r)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+			default:
+				dl, err = contentloader.GetDataLoader("application/x-www-form-urlencoded", r)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
 			}
 		}
 

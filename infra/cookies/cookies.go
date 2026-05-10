@@ -1,5 +1,5 @@
 // Package cookies builds HTTP cookies with the same-site / secure /
-// domain conventions easyserver uses for auth cookies. It has no
+// domain conventions wave uses for auth cookies. It has no
 // awareness of the auth feature; callers pass primitive policy fields.
 package cookies
 

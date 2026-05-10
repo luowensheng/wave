@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"easyserver/infra/render"
-	"easyserver/io/http/contentloader"
+	"wave/infra/render"
+	"wave/io/http/contentloader"
 )
 
 // StorageRef is the interface for a storage backend.

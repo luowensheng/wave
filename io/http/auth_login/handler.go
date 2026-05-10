@@ -7,7 +7,7 @@ import (
 	"strings"
 	texttemplate "text/template"
 
-	"easyserver/infra/render"
+	"wave/infra/render"
 )
 
 // LoginResult carries the outcome of an authentication attempt.

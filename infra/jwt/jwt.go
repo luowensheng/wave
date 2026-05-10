@@ -1,6 +1,6 @@
 // Package jwt is a thin adapter around github.com/golang-jwt/jwt/v5 that
 // signs and parses HS256 tokens carrying our session/user claims. It has
-// no awareness of the easyserver auth feature it ultimately serves.
+// no awareness of the wave auth feature it ultimately serves.
 package jwt
 
 import (
@@ -11,7 +11,7 @@ import (
 	gojwt "github.com/golang-jwt/jwt/v5"
 )
 
-// Claims is the payload carried by every easyserver session token.
+// Claims is the payload carried by every wave session token.
 type Claims struct {
 	UserID    int                `json:"user_id"`
 	Username  string             `json:"username"`
