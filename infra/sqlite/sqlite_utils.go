@@ -270,3 +270,65 @@ func convertValue(value string, columnType string) interface{} {
 
 	return value // Default to string
 }
+
+// lastStatementStart returns the byte offset of the first character of
+// the LAST non-empty statement in a multi-statement SQL script. Returns
+// 0 if there's only one statement (no `;` separator). Skips `;` inside
+// single- or double-quoted string literals.
+func lastStatementStart(sql string) int {
+	last := 0
+	inSingle := false
+	inDouble := false
+	for i := 0; i < len(sql); i++ {
+		switch sql[i] {
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+		case ';':
+			if !inSingle && !inDouble {
+				// Find the next non-whitespace character — that's the
+				// start of the next statement (if any).
+				j := i + 1
+				for j < len(sql) && (sql[j] == ' ' || sql[j] == '\t' || sql[j] == '\n' || sql[j] == '\r') {
+					j++
+				}
+				if j < len(sql) {
+					last = j
+				}
+			}
+		}
+	}
+	return last
+}
+
+// stripParenContents removes everything inside the outermost balanced
+// parentheses, replacing each pair with a space. Used by the SELECT-shape
+// heuristics in isScalarQuery / isSingleRowQuery to ignore subqueries
+// when reasoning about the OUTER query's column list / clauses.
+func stripParenContents(s string) string {
+	var b []byte
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '(':
+			if depth == 0 {
+				b = append(b, ' ')
+			}
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		default:
+			if depth == 0 {
+				b = append(b, s[i])
+			}
+		}
+	}
+	return string(b)
+}

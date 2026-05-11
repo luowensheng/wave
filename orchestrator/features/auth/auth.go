@@ -86,6 +86,15 @@ type AuthConfig struct {
 	// Logout). Resolved at boot in plugin_bridge.go.
 	Plugin string `json:"plugin,omitempty" yaml:"plugin,omitempty"`
 
+	// PluginMethod overrides the AuthRequest.Method passed to the plugin
+	// when this config is used by an auth-login route. Empty defaults
+	// to "password" — fine for credential plugins. Set to "saml_init",
+	// "oauth_callback", or any other plugin-defined name when the
+	// route's primary action isn't a password check (e.g. SAML SP
+	// initiating a redirect to the IdP). Per-request callers can still
+	// override via the X-Auth-Method request header.
+	PluginMethod string `json:"plugin_method,omitempty" yaml:"plugin_method,omitempty"`
+
 	// In-memory default user store
 	defaultUsers map[string]*User `json:"-" yaml:"-"`
 }

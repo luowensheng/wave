@@ -26,14 +26,18 @@ routes:
   - path: /items
     method: POST
     type: storage-access
+    expected_content_type: application/json
     inputs:
       - { name: name, source: body, type: string, required: true, min: 1, max: 200 }
-      - { name: tags, source: body, required: true }
+      - { name: tags, source: body, type: array,  required: true }
     storage-access:
       source: items
+      # jsonArray serializes the array input as a JSON string literal so
+      # SQLite's json() can parse it (without this it would arrive as
+      # the Go default "[a b c]" formatting and fail).
       execute: |
         INSERT INTO items(name, tags)
-        VALUES ({{name}}, json({{tags}}))
+        VALUES ({{name}}, json({{ jsonArray (raw "tags") }}))
       response_content_type: application/json
       output_template: '{"id": {{.LastInsertID}}}'
 

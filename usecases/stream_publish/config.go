@@ -110,8 +110,11 @@ func (c *Config) CreateRoute(method, path string, args map[string]string) (http.
 
 		if c.ForwardURL != "" {
 			// Run on a goroutine so we don't block the broker fan-out
-			// even when the outbox is in inline-fallback mode.
-			go c.forward(r.Context(), raw)
+			// even when the outbox is in inline-fallback mode. Detach
+			// from r.Context() — that context is canceled the moment
+			// the handler returns 202, which would silently fail
+			// outbox.Enqueue (ExecContext gives up on a canceled ctx).
+			go c.forward(context.Background(), raw)
 		}
 
 		w.Header().Set("Content-Type", "application/json")

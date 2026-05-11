@@ -67,7 +67,7 @@ routes:
       source: bm
       execute: |
         SELECT id, title, url, created_at FROM bookmarks
-        WHERE owner = {{ wrap (printf "%s" getUser.Username) }}
+        WHERE owner = {{ bind getUser.Username }}
         ORDER BY id DESC
       response_content_type: application/json
       output_template: "{{toJSON .Data}}"
@@ -84,6 +84,6 @@ routes:
       source: bm
       execute: |
         INSERT INTO bookmarks(owner, title, url)
-        VALUES ({{ wrap (printf "%s" getUser.Username) }}, {{title}}, {{url}})
+        VALUES ({{ bind getUser.Username }}, {{title}}, {{url}})
       response_content_type: application/json
       output_template: '{"id": {{.LastInsertID}}}'

@@ -31,6 +31,7 @@ auth:
   corp_sso:
     type: plugin
     plugin: saml_corp
+    plugin_method: saml_init        # auth-login dispatches saml_init (the SP-initiated SSO start)
     token_location: cookie
     cookie_name: corp_session
     secret: dev-secret-change-me

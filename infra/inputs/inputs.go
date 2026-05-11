@@ -54,6 +54,8 @@ const (
 	TypeUUID   Type = "uuid"
 	TypeFile   Type = "file"  // multipart file upload — value is *File
 	TypeBytes  Type = "bytes" // raw bytes — value is []byte
+	TypeArray  Type = "array" // JSON array passed through verbatim — value is []any
+	TypeObject Type = "object" // JSON object passed through verbatim — value is map[string]any
 )
 
 // File is the value type for inputs declared as `type: file`. Surfaced
@@ -137,7 +139,7 @@ func Compile(specs []Spec) (*SpecSet, error) {
 			s.Type = TypeString
 		}
 		switch s.Type {
-		case TypeString, TypeInt, TypeFloat, TypeBool, TypeEmail, TypeUUID, TypeFile, TypeBytes:
+		case TypeString, TypeInt, TypeFloat, TypeBool, TypeEmail, TypeUUID, TypeFile, TypeBytes, TypeArray, TypeObject:
 		default:
 			return nil, fmt.Errorf("input %q: unknown type %q", s.Name, s.Type)
 		}
@@ -220,6 +222,39 @@ func (s *SpecSet) Parse(r *http.Request) Result {
 		if sp.Type == TypeBytes {
 			if body.raw != nil {
 				out.Values[sp.Name] = body.raw
+				continue
+			}
+			if sp.Required {
+				out.Issues = append(out.Issues, Issue{Input: sp.Name, Source: string(sp.Source), Reason: "required"})
+			}
+			continue
+		}
+
+		// Type:array / Type:object: pass the JSON value through verbatim
+		// without string coercion. Only meaningful when the body is JSON
+		// (body.values carries the parsed []any / map[string]any). For
+		// other body types the lookup falls through to the string path.
+		if sp.Type == TypeArray || sp.Type == TypeObject {
+			if v, ok := body.values[key]; ok {
+				switch sp.Type {
+				case TypeArray:
+					if arr, ok := v.([]any); ok {
+						out.Values[sp.Name] = arr
+						continue
+					}
+					out.Issues = append(out.Issues, Issue{Input: sp.Name, Source: string(sp.Source), Reason: "not an array"})
+					continue
+				case TypeObject:
+					if obj, ok := v.(map[string]any); ok {
+						out.Values[sp.Name] = obj
+						continue
+					}
+					out.Issues = append(out.Issues, Issue{Input: sp.Name, Source: string(sp.Source), Reason: "not an object"})
+					continue
+				}
+			}
+			if sp.Default != nil {
+				out.Values[sp.Name] = sp.Default
 				continue
 			}
 			if sp.Required {

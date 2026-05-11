@@ -123,6 +123,13 @@ func (am *AuthManager) pluginAuthenticate(form LoginForm, config *AuthConfig, r 
 	}
 
 	req := buildPluginAuthRequest(form, r)
+	if req.Method == "password" && config.PluginMethod != "" {
+		// Route's auth_config declared a default method (e.g. saml_init);
+		// honour it unless the caller explicitly set X-Auth-Method.
+		if r == nil || r.Header.Get("X-Auth-Method") == "" {
+			req.Method = config.PluginMethod
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), pluginAuthTimeout)
 	defer cancel()
 

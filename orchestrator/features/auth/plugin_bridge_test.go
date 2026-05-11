@@ -149,3 +149,60 @@ func TestPluginBridge_LoginWithRequestThreadsHeaders(t *testing.T) {
 		t.Fatalf("plugin saw method = %v, want [saml_callback]", fake.authReqMethods)
 	}
 }
+
+// installFakeAuthPluginWithMethod is like installFakeAuthPlugin but lets
+// the caller declare a default PluginMethod on the AuthConfig — the path
+// SAML / similar plugins use when auth-login is the SP-initiated start.
+func installFakeAuthPluginWithMethod(t *testing.T, name, pluginMethod string) *fakeAuthPlugin {
+	t.Helper()
+	fake := &fakeAuthPlugin{}
+	cfg := &AuthConfig{
+		Type:          "plugin",
+		Plugin:        "the_plugin",
+		PluginMethod:  pluginMethod,
+		TokenLocation: "cookie",
+		CookieName:    "auth_token",
+	}
+	t.Setenv("SECRET_KEY", "test-secret-please-ignore")
+	if err := InitAuthManager(map[string]*AuthConfig{name: cfg}); err != nil {
+		t.Fatalf("InitAuthManager: %v", err)
+	}
+	RegisterAuthPlugins(map[string]AuthPlugin{name: fake})
+	return fake
+}
+
+func TestPluginBridge_PluginMethodFromConfig(t *testing.T) {
+	fake := installFakeAuthPluginWithMethod(t, "saml_corp_init", "saml_init")
+	fake.authResult = &AuthPluginResult{
+		Authenticated: true,
+		Claims:        &AuthPluginClaims{Subject: "u@example.com"},
+	}
+
+	resp := Login(LoginForm{}, "saml_corp_init")
+	if !resp.Success {
+		t.Fatalf("expected success: %+v", resp)
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.authReqMethods) != 1 || fake.authReqMethods[0] != "saml_init" {
+		t.Fatalf("plugin saw method = %v, want [saml_init]", fake.authReqMethods)
+	}
+}
+
+func TestPluginBridge_HeaderOverridesPluginMethod(t *testing.T) {
+	fake := installFakeAuthPluginWithMethod(t, "saml_corp_dual", "saml_init")
+	fake.authResult = &AuthPluginResult{
+		Authenticated: true,
+		Claims:        &AuthPluginClaims{Subject: "u@example.com"},
+	}
+	r := httptest.NewRequest("POST", "/login/callback", nil)
+	r.Header.Set("X-Auth-Method", "saml_callback")
+	if !LoginWithRequest(LoginForm{}, "saml_corp_dual", r).Success {
+		t.Fatal("login failed")
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.authReqMethods) != 1 || fake.authReqMethods[0] != "saml_callback" {
+		t.Fatalf("plugin saw method = %v, want [saml_callback]", fake.authReqMethods)
+	}
+}

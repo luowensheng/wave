@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"wave/domain"
 	"wave/io/http/contentloader"
 	"wave/infra/common"
@@ -60,6 +61,14 @@ func determineQueryType(sqlStatement string) SQLQueryType {
 		return QueryTypeExec
 	}
 
+	// Multi-statement scripts (`UPDATE ...; SELECT ...`) classify based
+	// on the LAST non-empty statement, so a trailing SELECT after a
+	// write returns rows instead of RowsAffected. Splits on `;` while
+	// preserving inline `;` inside quoted strings via a tiny scanner.
+	if i := lastStatementStart(cleanSQL); i > 0 {
+		cleanSQL = strings.TrimSpace(cleanSQL[i:])
+	}
+
 	cleanSQL = regexp.MustCompile(`\s+`).ReplaceAllString(cleanSQL, " ")
 	cleanSQL = strings.ToUpper(cleanSQL)
 
@@ -88,21 +97,35 @@ func determineQueryType(sqlStatement string) SQLQueryType {
 func isSingleRowQuery(sql string) bool {
 	s := strings.ToUpper(strings.TrimSpace(sql))
 
+	// Strip everything inside parens (subqueries) so the heuristics
+	// below see only the OUTER query. Without this, a SELECT with a
+	// `(... GROUP BY ...)` subquery would be classified as multi-row
+	// even though the outer SELECT returns exactly one row.
+	outer := stripParenContents(s)
+
 	// 1. LIMIT must be exactly 1
-	if strings.Contains(s, "LIMIT 1") && !strings.Contains(s, "LIMIT 10") && !strings.Contains(s, "LIMIT 11") {
+	if strings.Contains(outer, "LIMIT 1") && !strings.Contains(outer, "LIMIT 10") && !strings.Contains(outer, "LIMIT 11") {
 		return true
 	}
 
 	// 2. Aggregate functions WITHOUT GROUP BY → single row
-	if strings.Contains(s, "COUNT(") ||
-		strings.Contains(s, "SUM(") ||
-		strings.Contains(s, "AVG(") ||
-		strings.Contains(s, "MIN(") ||
-		strings.Contains(s, "MAX(") {
+	if strings.Contains(outer, "COUNT(") ||
+		strings.Contains(outer, "SUM(") ||
+		strings.Contains(outer, "AVG(") ||
+		strings.Contains(outer, "MIN(") ||
+		strings.Contains(outer, "MAX(") {
 
-		if !strings.Contains(s, "GROUP BY") {
+		if !strings.Contains(outer, "GROUP BY") {
 			return true
 		}
+	}
+
+	// 2b. Outer SELECT made entirely of scalar subqueries (each column
+	// is a `(SELECT ...)` expression) → exactly one row, regardless of
+	// what the subqueries do. Detect by: stripped outer has no FROM and
+	// the original starts with SELECT.
+	if strings.HasPrefix(outer, "SELECT") && !strings.Contains(outer, "FROM") {
+		return true
 	}
 
 	// 3. Strict primary key match using regex (word boundary)
@@ -128,29 +151,72 @@ func isSingleRowQuery(sql string) bool {
 }
 
 // isScalarQuery determines if a SELECT query returns a single scalar value
+// (one row, one column). Heuristic: the OUTER SELECT must contain an
+// aggregate function AND have no top-level commas in its select-clause.
+// Earlier versions just searched for the first FROM, which got fooled
+// by subqueries — `SELECT (SELECT count(*) FROM x), (SELECT ...) FROM y`
+// would extract just the first subquery as the "select clause" and
+// classify the whole thing as scalar even though it returns 2 columns.
 func isScalarQuery(sqlStatement string) bool {
 	upperSQL := strings.ToUpper(strings.TrimSpace(sqlStatement))
-
-	// Check for single column aggregate functions
 	aggregateFunctions := []string{"COUNT(", "SUM(", "AVG(", "MIN(", "MAX(", "TOTAL("}
+	hasAggregate := false
 	for _, fn := range aggregateFunctions {
 		if strings.Contains(upperSQL, fn) {
-			// Count commas in SELECT clause to estimate column count
-			selectStart := strings.Index(upperSQL, "SELECT")
-			fromStart := strings.Index(upperSQL, "FROM")
-			if selectStart != -1 && fromStart != -1 && fromStart > selectStart {
-				selectClause := upperSQL[selectStart+6 : fromStart] // +6 for "SELECT"
-				selectClause = strings.TrimSpace(selectClause)
-
-				// Simple heuristic: if no commas and it's an aggregate, likely scalar
-				if !strings.Contains(selectClause, ",") {
-					return true
-				}
+			hasAggregate = true
+			break
+		}
+	}
+	if !hasAggregate {
+		return false
+	}
+	// Find the start of the outer SELECT's column list (after the
+	// leading "SELECT") and the matching outer FROM at depth 0. Count
+	// commas at depth 0 in between — any comma means multi-column.
+	selectStart := strings.Index(upperSQL, "SELECT")
+	if selectStart < 0 {
+		return false
+	}
+	clauseStart := selectStart + len("SELECT")
+	depth := 0
+	commas := 0
+	clauseEnd := -1
+	for i := clauseStart; i < len(upperSQL); i++ {
+		switch upperSQL[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				commas++
+			}
+		}
+		// Match outer FROM as a whole word at depth 0.
+		if depth == 0 && i+5 <= len(upperSQL) && upperSQL[i:i+4] == "FROM" {
+			// confirm word boundary
+			before := byte(' ')
+			if i > 0 {
+				before = upperSQL[i-1]
+			}
+			after := byte(' ')
+			if i+4 < len(upperSQL) {
+				after = upperSQL[i+4]
+			}
+			if !isSQLNameByte(before) && !isSQLNameByte(after) {
+				clauseEnd = i
+				break
 			}
 		}
 	}
+	_ = clauseEnd // (we only care about the comma count between selectStart and clauseEnd)
+	return commas == 0
+}
 
-	return false
+func isSQLNameByte(b byte) bool {
+	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9') || b == '_'
 }
 
 // processSelectResult processes SELECT query results into convenient Go types
@@ -565,6 +631,36 @@ func (ref *SQLiteStorageRef) Execute(sqlStatement string, data *contentloader.Da
 			params = append(params, value)
 			return "?"
 		},
+		// bind takes any value and binds it as a SQL parameter, returning
+		// the placeholder. Use when you have an in-template expression
+		// (e.g. `getUser.Username`, a literal, an `index .Data 0`) and
+		// want it bound safely. `wrap` differs: it treats its argument
+		// as a *variable name* to look up in the inputs map.
+		"bind": func(v any) string {
+			if renderErr != nil {
+				return "?"
+			}
+			params = append(params, v)
+			return "?"
+		},
+		// jsonArray serializes an []any input (typically a `type: array`
+		// declared input or a slice carried via `getUser.Roles`) as a
+		// JSON literal that SQLite's `json_each` can iterate. Avoids
+		// the default Go `%v` `[a b c]` stringification that breaks
+		// downstream JSON parsing.
+		"jsonArray": func(v any) string {
+			if renderErr != nil {
+				return "''"
+			}
+			b, err := json.Marshal(v)
+			if err != nil {
+				renderErr = fmt.Errorf("jsonArray: %w", err)
+				return "''"
+			}
+			// Single-quoted SQL string literal. SQLite's JSON1 is happy
+			// with double quotes inside single quotes.
+			return "'" + strings.ReplaceAll(string(b), "'", "''") + "'"
+		},
 		"wrap": func(pattern string) string {
 			if renderErr != nil {
 				return "?"
@@ -801,6 +897,19 @@ func (ref *SQLiteStorageRef) Execute(sqlStatement string, data *contentloader.Da
 			// paramIndex++
 			return "?"
 		}
+	}
+
+	// raw returns the raw declared-input value (any type) without binding
+	// it as a SQL parameter. Use to feed values into helpers like
+	// jsonArray that need the actual Go value, not a `?` placeholder.
+	// Example: {{ jsonArray (raw "tags") }}.
+	funcMap["raw"] = func(key string) any {
+		v, err := data.GetValue(key)
+		if err != nil {
+			renderErr = fmt.Errorf("raw: %w", err)
+			return nil
+		}
+		return v
 	}
 
 	// Render the template
