@@ -21,6 +21,7 @@ import (
 	"wave/infra/errreport"
 	"wave/infra/forwardauth"
 	infrahttp "wave/infra/http"
+	"wave/infra/httpclient"
 	"wave/infra/inputs"
 	"wave/infra/ipfilter"
 	"wave/infra/net"
@@ -31,6 +32,9 @@ import (
 	"wave/infra/secrets"
 	"wave/infra/webhooksig"
 	"wave/usecases/routes"
+	"wave/usecases/schedule"
+	storageaccess "wave/usecases/storage_access"
+	taskroute "wave/usecases/task"
 	"wave/orchestrator/features/storage"
 	orchusecases "wave/orchestrator/usecases"
 
@@ -40,8 +44,9 @@ import (
 )
 
 type Defaults struct {
-	Port *int    `yaml:"port"`
-	Host *string `yaml:"host"`
+	Port                *int    `yaml:"port"`
+	Host                *string `yaml:"host"`
+	ExpectedContentType string  `yaml:"expected_content_type,omitempty" json:"expected_content_type,omitempty"`
 }
 
 type HTTPSConfig struct {
@@ -59,23 +64,79 @@ type Arg struct {
 	Description string  `yaml:"description" json:"description"`
 }
 
+// IncludeRef is a single composition reference declared under the
+// host/module `include:` list. File is a path relative to the
+// declaring file's directory; Prefix (optional) shifts every
+// inbound path-shaped field of the included module's authored routes.
+type IncludeRef struct {
+	File   string `yaml:"file" json:"file"`
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+}
+
+// routeGroup is one ordered slab of raw route YAML to materialize.
+// The host file is always the first group (empty prefix, host
+// baseDir); each recursively-included module appends one group with
+// its effective composed prefix and its own baseDir.
+type routeGroup struct {
+	rawRoutes common.RawYAML
+	prefix    string
+	baseDir   string
+}
+
 type Config struct {
 	JSONDiscoveryRoutePath string `yaml:"json_discovery_route_path" json:"json_discovery_route_path"`
 	HTMLDiscoveryRoutePath string `yaml:"html_discovery_route_path" json:"html_discovery_route_path"`
 
 	Defaults *Defaults `yaml:"default" json:"default"`
 
-	Storage     map[string]*storage.StorageConfig `json:"storage,omitempty"`
-	HTTPSConfig *HTTPSConfig                      `yaml:"https_config,omitempty" json:"https_config,omitempty"`
-	Args        map[string]*Arg                   `yaml:"args,omitempty" json:"args,omitempty"`
-	Env         map[string]*Arg                   `yaml:"env,omitempty" json:"env,omitempty"`
+	// Resource maps are resolved (post-composition) form. They carry
+	// `yaml:"-"` because raw YAML is decoded into the sibling private
+	// `rawX map[string]yaml.Node` fields first; the resolver then walks
+	// those nodes (handling `extern:`) and populates these typed maps.
+	// All downstream consumers (InitDependencies, validators, etc.)
+	// read these typed maps unchanged.
+	Storage     map[string]*storage.StorageConfig        `yaml:"-" json:"storage,omitempty"`
+	HTTPSConfig *HTTPSConfig                             `yaml:"https_config,omitempty" json:"https_config,omitempty"`
+	Args        map[string]*Arg                          `yaml:"args,omitempty" json:"args,omitempty"`
+	Env         map[string]*Arg                          `yaml:"env,omitempty" json:"env,omitempty"`
 
-	Auth        map[string]*auth.AuthConfig                  `yaml:"auth,omitempty" json:"auth,omitempty"`
-	Build       *bundler.Config                              `yaml:"build,omitempty" json:"build,omitempty"`
-	Plugins     map[string]*plugins.PluginConfig             `yaml:"plugins,omitempty" json:"plugins,omitempty"`
-	Connections map[string]*connections.ConnectionConfig     `yaml:"connections,omitempty" json:"connections,omitempty"`
-	RawRoutes   common.RawYAML                               `yaml:"routes,omitempty" json:"-,omitempty"`
-	Routes      []*Route                                     `yaml:"-" json:"Routes"`
+	Auth        map[string]*auth.AuthConfig              `yaml:"-" json:"auth,omitempty"`
+	Build       *bundler.Config                          `yaml:"build,omitempty" json:"build,omitempty"`
+	Plugins     map[string]*plugins.PluginConfig         `yaml:"-" json:"plugins,omitempty"`
+	Connections map[string]*connections.ConnectionConfig `yaml:"-" json:"connections,omitempty"`
+	RawRoutes   common.RawYAML                           `yaml:"routes,omitempty" json:"-,omitempty"`
+	Routes      []*Route                                 `yaml:"-" json:"Routes"`
+
+	// Raw (pre-extern) resource nodes. Populated by Config.UnmarshalYAML
+	// (yaml.v3 cannot fill unexported fields, so they are captured
+	// manually there) and consumed once by the resolver. Never read
+	// after resolution.
+	rawStorage     map[string]yaml.Node `yaml:"-" json:"-"`
+	rawAuth        map[string]yaml.Node `yaml:"-" json:"-"`
+	rawPlugins     map[string]yaml.Node `yaml:"-" json:"-"`
+	rawConnections map[string]yaml.Node `yaml:"-" json:"-"`
+	rawRequests    map[string]yaml.Node `yaml:"-" json:"-"`
+	rawLimits      map[string]yaml.Node `yaml:"-" json:"-"`
+
+	// Kind, when non-empty, marks this file as a typed resource library
+	// (not a server). Booting a library is an explicit error.
+	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"`
+
+	// Include lists module/host composition references resolved by the
+	// resolver. Each entry merges another file's resources and routes,
+	// the latter optionally shifted under Prefix.
+	Include []IncludeRef `yaml:"include,omitempty" json:"include,omitempty"`
+
+	// routeGroups holds, in include order, the raw route YAML for the
+	// host plus every recursively-included module together with the
+	// effective prefix and the module's baseDir. materializeRoutes is
+	// the SOLE consumer; it is the ONLY place prefixing happens.
+	routeGroups []routeGroup
+
+	// routesMaterialized guards the lazy route materialization done by
+	// renderVars / validate / route_summary so they converge on the
+	// merged+prefixed route set.
+	routesMaterialized bool
 
 	IpFilter *struct {
 		Whitelist []string `yaml:"ip_whitelist,omitempty" json:"ip_whitelist,omitempty"`
@@ -86,10 +147,17 @@ type Config struct {
 	// (created if missing); a background worker drains it. Empty disables.
 	OutboxDB string `yaml:"outbox_db,omitempty" json:"outbox_db,omitempty"`
 
-	// Schedule lists in-process scheduled jobs. Each job invokes a
-	// configured plugin on a fixed interval (`every: 30s`) or daily at
-	// a wall-clock time (`at: "07:30"`). Not persisted across restarts.
-	Schedule []*ScheduledJob `yaml:"schedule,omitempty" json:"schedule,omitempty"`
+	// Schedule lists in-process scheduled jobs keyed by name. Each job
+	// invokes a configured plugin on a fixed interval (`every: 30s`) or
+	// daily at a wall-clock time (`at: "07:30"`). Not persisted across
+	// restarts. The map key is the job name — consistent with plugins,
+	// connections, storage, and auth top-level blocks.
+	Schedule map[string]*ScheduledJob `yaml:"schedule,omitempty" json:"schedule,omitempty"`
+
+	// Requests is a registry of named outbound HTTP request definitions.
+	// Referenced by `action.ref` in schedule jobs and type:fetch routes.
+	// Resolved form — see rawRequests / the resolver.
+	Requests map[string]*httpclient.RequestDef `yaml:"-" json:"requests,omitempty"`
 
 	// AuthFlows configures email/SMS senders for magic-link login,
 	// email verification, password reset, and TOTP. Optional — if
@@ -108,8 +176,8 @@ type Config struct {
 	// Each entry covers exactly one Case (body_too_large,
 	// rate_limited, etc.). Bundles are expressed by listing several
 	// names on a route. Mirrors the pattern used by Auth, Plugins,
-	// Connections, Storage.
-	Limits map[string]*LimitEntry `yaml:"limits,omitempty" json:"limits,omitempty"`
+	// Connections, Storage. Resolved form — see rawLimits / the resolver.
+	Limits map[string]*LimitEntry `yaml:"-" json:"limits,omitempty"`
 
 	// Observability selects which exporter-kind plugins receive the
 	// fan-out push of metrics / traces / logs. Empty list = Prometheus
@@ -146,14 +214,26 @@ type AuthFlowsConfig struct {
 	VerifyDB string `yaml:"verify_db,omitempty" json:"verify_db,omitempty"`
 }
 
+// ScheduledAction and ScheduledSink are aliases to the canonical types
+// in usecases/schedule. The schedule package owns the YAML schema for
+// actions and sinks (api | storage | plugin | publish | for_each), the
+// validation rules, and the executor. Keeping these as aliases means
+// any new sink/action type added in the schedule package becomes
+// immediately usable from the top-level `schedule:` YAML block with
+// no re-wiring here.
+type ScheduledAction = schedule.Action
+type ScheduledSink = schedule.Sink
+
 // ScheduledJob is one entry under the top-level `schedule:` block.
+// The name is the map key in Config.Schedule — it is not a struct field.
 type ScheduledJob struct {
-	Name       string         `yaml:"name,omitempty" json:"name,omitempty"`
-	Plugin     string         `yaml:"plugin,omitempty" json:"plugin,omitempty"`
-	TriggerKey string         `yaml:"trigger_key,omitempty" json:"trigger_key,omitempty"`
-	Every      string         `yaml:"every,omitempty" json:"every,omitempty"`
-	At         string         `yaml:"at,omitempty" json:"at,omitempty"`
-	Body       map[string]any `yaml:"body,omitempty" json:"body,omitempty"`
+	Plugin     string           `yaml:"plugin,omitempty" json:"plugin,omitempty"`
+	TriggerKey string           `yaml:"trigger_key,omitempty" json:"trigger_key,omitempty"`
+	Every      string           `yaml:"every,omitempty" json:"every,omitempty"`
+	At         string           `yaml:"at,omitempty" json:"at,omitempty"`
+	Body       map[string]any   `yaml:"body,omitempty" json:"body,omitempty"`
+	Action     *ScheduledAction `yaml:"action,omitempty" json:"action,omitempty"`
+	Then       []*ScheduledSink `yaml:"then,omitempty" json:"then,omitempty"`
 }
 
 // Server struct
@@ -420,10 +500,27 @@ func (s *Server) HandleFunc(route *Route) error {
 		prev := wrappedHandler
 		wrappedHandler = func(w http.ResponseWriter, r *http.Request) {
 			// Preflight: short-circuit the handler entirely.
+			// We answer OPTIONS unconditionally when cors_origins is
+			// configured — even without an Origin header (curl,
+			// same-origin probes) — because the inner allowedMethods
+			// check would otherwise 405 the preflight and break
+			// browser CORS for the route's real verbs.
 			if r.Method == http.MethodOptions {
 				if connections.HandleCORS(w, r, corsOrigins) {
 					return
 				}
+				if m := r.Header.Get("Access-Control-Request-Method"); m != "" {
+					w.Header().Set("Access-Control-Allow-Methods", m+", OPTIONS")
+				} else {
+					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+				}
+				if h := r.Header.Get("Access-Control-Request-Headers"); h != "" {
+					w.Header().Set("Access-Control-Allow-Headers", h)
+				} else {
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				}
+				w.WriteHeader(http.StatusNoContent)
+				return
 			}
 			// For real requests we wrap the writer so the configured
 			// CORS headers WIN over anything the upstream / inner
@@ -586,6 +683,18 @@ func (s *Server) InitDependencies() error {
 			fmt.Println("InitStorage err: ", err.Error())
 			return err
 		}
+		// Wire storage lookup functions for task routes and the scheduler.
+		// These must defer to storageaccess.GetStorageFn at call time, not
+		// snapshot it now: WireAll() (which actually assigns
+		// storageaccess.GetStorageFn) runs later in InitDependencies, so a
+		// direct copy here would capture a nil func. Mirrors the
+		// GetConnectionFn / GetPluginFn closure pattern below.
+		taskroute.GetStorageFn = func(name string) (storageaccess.StorageRef, bool) {
+			return storageaccess.GetStorageFn(name)
+		}
+		schedule.GetStorageFn = func(name string) (storageaccess.StorageRef, bool) {
+			return storageaccess.GetStorageFn(name)
+		}
 	}
 
 	if config.Auth != nil {
@@ -619,6 +728,33 @@ func (s *Server) InitDependencies() error {
 		log.Printf("connection registry initialized: %d connection(s)", len(config.Connections))
 	}
 
+	// Wire httpclient registry.
+	if config.Requests != nil {
+		reg, err := httpclient.NewRegistry(config.Requests)
+		if err != nil {
+			return fmt.Errorf("requests registry: %w", err)
+		}
+		httpclient.SetDefault(reg)
+	} else {
+		httpclient.SetDefault(&httpclient.Registry{})
+	}
+
+	// Wire schedule package connection and plugin dependencies.
+	schedule.GetConnectionFn = func(name string) (*connections.Broker, bool) {
+		reg := connections.Default()
+		if reg == nil {
+			return nil, false
+		}
+		return reg.Get(name)
+	}
+	schedule.GetPluginFn = func(name string) (plugins.Client, bool) {
+		reg := plugins.Default()
+		if reg == nil {
+			return nil, false
+		}
+		return reg.Get(name)
+	}
+
 	// If durable outbox is requested, open it and bind it to
 	// stream-publish.forward_url so deliveries survive restarts.
 	if config.OutboxDB != "" {
@@ -645,6 +781,18 @@ func (s *Server) InitDependencies() error {
 	return nil
 }
 
+// ProbeConfig parses and fully resolves a config (externs, includes,
+// prefixes, kind-reject) WITHOUT the os.Chdir side effect NewServer
+// performs and WITHOUT booting anything (no InitDependencies, no DB
+// open, no listeners). The resolver is CWD-independent by design, so a
+// long-running multi-project process (Studio) can call this safely to
+// get the exact composed view the running server would expose.
+// Returns the resolver's "kind:X library, not a server" error verbatim
+// for typed-library files so callers can surface it.
+func ProbeConfig(configPath string) (*Config, error) {
+	return loadConfig(configPath)
+}
+
 func loadConfig(configPath string) (*Config, error) {
 
 	bytes, err := os.ReadFile(configPath)
@@ -668,6 +816,23 @@ func loadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	absConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve config path: %w", err)
+	}
+	if real, err := filepath.EvalSymlinks(absConfigPath); err == nil {
+		absConfigPath = real
+	}
+	baseDir := filepath.Dir(absConfigPath)
+
+	if config.Kind != "" {
+		return nil, fmt.Errorf("%s is a kind:%s library, not a server — libraries are borrowed via extern:, not booted", absConfigPath, config.Kind)
+	}
+
+	if err := resolveConfig(&config, absConfigPath, baseDir); err != nil {
+		return nil, err
+	}
+
 	return &config, nil
 }
 
@@ -678,46 +843,13 @@ type RouteSummary struct {
 	Method      string `json:"method"`
 }
 
+// renderVars materializes routes from the resolver-prepared route
+// groups, applying $arg/$env substitution and composition prefixes.
+// All the heavy lifting (and the only place prefixing happens) lives
+// in materializeRoutes so `wave routes` / `wave validate` / openapi
+// converge on the identical merged+prefixed route set.
 func (s *Server) renderVars() error {
-
-	var routes = []*Route{}
-
-	routeBytes, err := s.Config.RawRoutes.Bytes()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		s.Config.RawRoutes = common.RawYAML{}
-	}()
-
-	routeString := string(routeBytes)
-	for key, value := range s.Args {
-		routeString = strings.ReplaceAll(routeString, fmt.Sprintf("$%s", key), value)
-		fmt.Println("ADDED ARG VALUE FOR: ", key, " -> ", value)
-	}
-
-	for key, valueConfig := range s.Config.Env {
-		value := os.Getenv(key)
-		if value == "" && valueConfig.Default != nil && *valueConfig.Default != "" {
-			value = *valueConfig.Default
-			os.Setenv(key, value)
-			fmt.Printf("USING DEFAULT VALUE FOR ENV VAR: %s\n", key)
-		}
-		if value == "" {
-			return fmt.Errorf("missing env value for: %s", key)
-		}
-		routeString = strings.ReplaceAll(routeString, fmt.Sprintf("$%s", key), value)
-		fmt.Println("ADDED ENV VALUE FOR: ", key)
-	}
-
-	err = yaml.Unmarshal([]byte(routeString), &routes)
-	if err != nil {
-		return err
-	}
-
-	s.Config.Routes = append(s.Config.Routes, routes...)
-	return nil
-
+	return materializeRoutes(s.Config, s.Args)
 }
 
 func (s *Server) Start(ctx context.Context) error {
