@@ -1,0 +1,51 @@
+# cors-preflight-demo — proves that `cors_origins: ["*"]` answers
+# OPTIONS preflight requests on method-bound forward routes, as long
+# as the route uses `methods: [POST]` (plural) instead of `method: post`.
+#
+# The footgun:
+#   method: post          → mux registers "POST /path" → OPTIONS gets
+#                           405 from Go's ServeMux BEFORE the CORS
+#                           wrapper runs.
+#   methods: [POST]       → mux registers "/path" (method-less) →
+#                           OPTIONS reaches the outer CORS wrapper,
+#                           which short-circuits with 204 + headers.
+#
+#   wave serve examples/apps/cors-preflight-demo/server.yaml --port 8404
+
+default:
+  host: 127.0.0.1
+  port: 8404
+
+routes:
+  # ─── The route under test ────────────────────────────────────────
+  # POST forwards to the in-config fake backend; OPTIONS short-circuits
+  # via cors_origins.
+  - path: /api/query
+    type: forward
+    methods: [POST]
+    cors_origins: ["*"]
+    forward:
+      forward_url: http://127.0.0.1:8404/internal/echo
+
+  # ─── Catch-all forward (also gets CORS) ──────────────────────────
+  - path: /api/
+    type: forward
+    cors_origins: ["*"]
+    forward:
+      forward_url: http://127.0.0.1:8404/internal/
+
+  # ─── Fake backend, in the same server ────────────────────────────
+  - path: /internal/echo
+    type: content
+    methods: [POST]
+    content:
+      status_code: 200
+      headers: [["Content-Type", "application/json"]]
+      body: '{"ok":true,"from":"internal/echo"}'
+
+  - path: /internal/
+    type: content
+    content:
+      status_code: 200
+      headers: [["Content-Type", "application/json"]]
+      body: '{"ok":true,"from":"internal/catchall"}'

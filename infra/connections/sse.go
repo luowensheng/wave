@@ -90,8 +90,21 @@ func HandleCORS(w http.ResponseWriter, r *http.Request, allowed []string) bool {
 	w.Header().Set("Vary", "Origin")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Last-Event-ID")
+		// Reflect the preflight request: whatever method/headers the
+		// browser is asking permission for, allow them. The server's
+		// own allowedMethods check still gates the actual request, so
+		// reflecting here just unblocks the preflight — it doesn't
+		// widen the surface beyond what the route already accepts.
+		if m := r.Header.Get("Access-Control-Request-Method"); m != "" {
+			w.Header().Set("Access-Control-Allow-Methods", m+", OPTIONS")
+		} else {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		}
+		if h := r.Header.Get("Access-Control-Request-Headers"); h != "" {
+			w.Header().Set("Access-Control-Allow-Headers", h)
+		} else {
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Last-Event-ID")
+		}
 		w.WriteHeader(http.StatusNoContent)
 		return true
 	}
