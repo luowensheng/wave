@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"wave/infra/connections"
-	"wave/infra/httpclient"
-	"wave/infra/plugins"
-	"wave/io/http/contentloader"
-	storageaccess "wave/usecases/storage_access"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/httpclient"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/io/http/contentloader"
+	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
 )
 
 // ── stubs ────────────────────────────────────────────────────────────────────

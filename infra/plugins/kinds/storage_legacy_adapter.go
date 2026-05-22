@@ -12,7 +12,7 @@ import (
 	"text/template"
 	"time"
 
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/io/http/contentloader"
 )
 
 // storageExecuteTimeout caps the per-request RPC time. Long enough for

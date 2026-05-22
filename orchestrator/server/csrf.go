@@ -1,7 +1,7 @@
 package servers
 
 import (
-	infrahttp "wave/infra/http"
+	infrahttp "github.com/luowensheng/wave/infra/http"
 	"net/http"
 )
 

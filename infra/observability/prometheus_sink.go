@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"wave/infra/metrics"
+	"github.com/luowensheng/wave/infra/metrics"
 )
 
 // PrometheusSink adapts incoming Sample/Log/Trace events into the

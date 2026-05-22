@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"wave/domain"
-	"wave/infra/oidc"
-	"wave/infra/rbac"
+	"github.com/luowensheng/wave/domain"
+	"github.com/luowensheng/wave/infra/oidc"
+	"github.com/luowensheng/wave/infra/rbac"
 )
 
 // oidcVerifiers holds one Verifier per AuthConfig of Type == "oidc".

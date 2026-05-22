@@ -11,7 +11,7 @@ This guide covers everything you need to land your first change.
 
 ```bash
 # Clone & build
-git clone https://github.com/<YOUR-ORG>/wave.git
+git clone https://github.com/luowensheng/wave.git
 cd wave
 go build ./...
 
@@ -54,7 +54,7 @@ fields:
 
 - **Bug** → reproduction steps + expected vs actual behavior
 - **Feature** → use case first, proposed solution second
-- **Question** → consider [GitHub Discussions](https://github.com/<YOUR-ORG>/wave/discussions) instead if it's open-ended
+- **Question** → consider [GitHub Discussions](https://github.com/luowensheng/wave/discussions) instead if it's open-ended
 
 Before filing, search existing issues — duplicates are common on
 fast-moving projects.
@@ -144,7 +144,7 @@ Plugins are out-of-process binaries that speak a small JSON contract.
 See [docs/plugins.md](docs/plugins.md) for the full contract.
 
 A plugin template repo lives at
-`github.com/<YOUR-ORG>/wave-plugin-template` — fork it, change the
+`github.com/luowensheng/wave-plugin-template` — fork it, change the
 business logic, ship.
 
 ---

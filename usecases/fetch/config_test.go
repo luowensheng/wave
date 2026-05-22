@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"wave/infra/inputs"
-	"wave/usecases/schedule"
+	"github.com/luowensheng/wave/infra/inputs"
+	"github.com/luowensheng/wave/usecases/schedule"
 )
 
 // TestCreateRoute_MissingAction verifies that CreateRoute fails when Action is nil.

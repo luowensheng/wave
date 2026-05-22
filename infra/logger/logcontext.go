@@ -3,7 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
-	"wave/infra/common"
+	"github.com/luowensheng/wave/infra/common"
 	"strings"
 )
 

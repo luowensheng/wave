@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"wave/infra/connections"
+	"github.com/luowensheng/wave/infra/connections"
 )
 
 // StreamRoute is a frontend-discoverable description of a streaming

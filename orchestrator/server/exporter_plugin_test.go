@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"wave/infra/observability"
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/observability"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // fakeExporter is a tiny in-memory exporter that records everything

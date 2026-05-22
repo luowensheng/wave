@@ -7,7 +7,7 @@ import (
 	"strings"
 	texttemplate "text/template"
 
-	"wave/infra/render"
+	"github.com/luowensheng/wave/infra/render"
 )
 
 // LoginResult carries the outcome of an authentication attempt.

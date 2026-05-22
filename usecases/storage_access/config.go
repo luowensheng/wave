@@ -1,7 +1,7 @@
 package storage_access
 
 import (
-	"wave/infra/inputs"
+	"github.com/luowensheng/wave/infra/inputs"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"wave/infra/render"
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/infra/render"
+	"github.com/luowensheng/wave/io/http/contentloader"
 )
 
 // PipelineStep is one execution step in a multi-query pipeline.

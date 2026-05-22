@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"wave/infra/connections"
-	"wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/orchestrator/features/auth"
 )
 
 // registerSubscribeRoutes registers a GET handler at every configured

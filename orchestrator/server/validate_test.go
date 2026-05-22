@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"wave/infra/connections"
-	"wave/infra/plugins"
-	"wave/usecases/routes"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/usecases/routes"
 )
 
 func newCfg() *Config {

@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"wave/infra/connections"
-	"wave/orchestrator/features/auth"
-	"wave/infra/httpclient"
-	"wave/infra/plugins"
-	"wave/infra/secrets"
-	"wave/orchestrator/features/storage"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/infra/httpclient"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/secrets"
+	"github.com/luowensheng/wave/orchestrator/features/storage"
 
 	"gopkg.in/yaml.v3"
 )

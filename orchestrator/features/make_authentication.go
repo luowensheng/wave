@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"wave/domain"
-	capfeatures "wave/features"
-	authfeature "wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/domain"
+	capfeatures "github.com/luowensheng/wave/features"
+	authfeature "github.com/luowensheng/wave/orchestrator/features/auth"
 )
 
 // MakeAuthentication returns a populated features.Authentication by closing

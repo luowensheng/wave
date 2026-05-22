@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"wave/orchestrator/features/auth"
-	"wave/infra/secrets"
+	"github.com/luowensheng/wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/infra/secrets"
 )
 
 func TestExpandStruct_AuthConfigSecret(t *testing.T) {

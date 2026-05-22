@@ -3,9 +3,9 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
-	"wave/domain"
-	"wave/io/http/contentloader"
-	"wave/infra/common"
+	"github.com/luowensheng/wave/domain"
+	"github.com/luowensheng/wave/io/http/contentloader"
+	"github.com/luowensheng/wave/infra/common"
 	"fmt"
 	"os"
 	"path/filepath"

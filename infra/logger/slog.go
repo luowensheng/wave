@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	infrahttp "wave/infra/http"
+	infrahttp "github.com/luowensheng/wave/infra/http"
 )
 
 // Slog is the structured logger handle. Defaults to a text handler at

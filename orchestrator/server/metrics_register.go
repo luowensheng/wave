@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"wave/infra/connections"
-	"wave/infra/metrics"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/metrics"
 )
 
 // Process-wide HTTP request counter — incremented inside the outer

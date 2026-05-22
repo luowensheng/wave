@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"wave/orchestrator/features/auth"
-	"wave/usecases/routes"
+	"github.com/luowensheng/wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/usecases/routes"
 )
 
 func TestOpenAPIDocumentsRoutes(t *testing.T) {

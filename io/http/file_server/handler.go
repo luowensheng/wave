@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "wave/infra/logger"
-	"wave/infra/render"
+	log "github.com/luowensheng/wave/infra/logger"
+	"github.com/luowensheng/wave/infra/render"
 )
 
 // Config holds the configuration for the file server handler.

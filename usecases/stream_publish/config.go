@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"wave/infra/connections"
-	"wave/infra/webhooksig"
-	"wave/usecases/jsonpath"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/webhooksig"
+	"github.com/luowensheng/wave/usecases/jsonpath"
 )
 
 type Config struct {

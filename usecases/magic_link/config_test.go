@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"wave/infra/mailer"
-	"wave/infra/verify"
+	"github.com/luowensheng/wave/infra/mailer"
+	"github.com/luowensheng/wave/infra/verify"
 )
 
 func TestMagicLinkRoundTrip(t *testing.T) {

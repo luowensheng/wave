@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"wave/infra/connections"
+	"github.com/luowensheng/wave/infra/connections"
 )
 
 func TestStreamPublishFiltersFieldsAndFansOut(t *testing.T) {

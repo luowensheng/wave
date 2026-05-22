@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"wave/infra/outbox"
-	streampub "wave/usecases/stream_publish"
+	"github.com/luowensheng/wave/infra/outbox"
+	streampub "github.com/luowensheng/wave/usecases/stream_publish"
 
 	_ "github.com/mattn/go-sqlite3"
 )

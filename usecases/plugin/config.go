@@ -17,8 +17,8 @@ import (
 	"net/http"
 	"strings"
 
-	"wave/infra/plugins"
-	"wave/usecases/jsonpath"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/usecases/jsonpath"
 )
 
 type Config struct {

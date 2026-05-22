@@ -1,8 +1,8 @@
 package routes
 
 import (
-	magic "wave/usecases/magic_link"
-	totprt "wave/usecases/totp_routes"
+	magic "github.com/luowensheng/wave/usecases/magic_link"
+	totprt "github.com/luowensheng/wave/usecases/totp_routes"
 )
 
 // MagicLinkRequestConfig — POST /login/request {"email": "..."}

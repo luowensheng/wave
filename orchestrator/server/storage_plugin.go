@@ -7,7 +7,7 @@ package servers
 import (
 	"fmt"
 
-	storageaccess "wave/usecases/storage_access"
+	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
 )
 
 // validateStorageRefs walks every storage_access route and confirms

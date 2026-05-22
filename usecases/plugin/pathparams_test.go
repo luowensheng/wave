@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 type capturingClient struct{ got *plugins.Request }

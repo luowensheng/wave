@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	servers "wave/orchestrator/server"
+	servers "github.com/luowensheng/wave/orchestrator/server"
 )
 
 // probedConfig is the studio UI's view of a project: address (host:port)

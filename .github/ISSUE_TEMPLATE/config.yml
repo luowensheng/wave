@@ -1,11 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Discussions — questions, ideas, show & tell
-    url: https://github.com/<YOUR-ORG>/wave/discussions
+    url: https://github.com/luowensheng/wave/discussions
     about: For open-ended questions and conversation. The issue tracker is for actionable bug reports and feature requests.
-  - name: Discord
-    url: https://discord.gg/<INVITE>
-    about: Live chat with the community.
   - name: Documentation
-    url: https://github.com/<YOUR-ORG>/wave/tree/main/docs
+    url: https://github.com/luowensheng/wave/tree/main/docs
     about: Read the docs before filing — most "how do I…" questions are covered.

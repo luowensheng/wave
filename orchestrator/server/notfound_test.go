@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"wave/usecases/routes"
+	"github.com/luowensheng/wave/usecases/routes"
 )
 
 func TestNotFoundServesConfiguredFile(t *testing.T) {

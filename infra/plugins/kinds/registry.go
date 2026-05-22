@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // RPCClient is the minimum surface a kind adapter needs: a single

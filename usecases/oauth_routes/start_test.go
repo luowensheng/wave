@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"wave/infra/oauth"
+	"github.com/luowensheng/wave/infra/oauth"
 )
 
 // fakeProvider lets us exercise the route handlers without booting a

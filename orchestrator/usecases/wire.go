@@ -7,16 +7,16 @@ package usecases
 import (
 	"net/http"
 
-	"wave/infra/plugins"
-	"wave/infra/plugins/kinds"
-	authfeature "wave/orchestrator/features/auth"
-	storagefeature "wave/orchestrator/features/storage"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins/kinds"
+	authfeature "github.com/luowensheng/wave/orchestrator/features/auth"
+	storagefeature "github.com/luowensheng/wave/orchestrator/features/storage"
 
-	authlg "wave/usecases/auth_login"
-	authlo "wave/usecases/auth_logout"
-	authsg "wave/usecases/auth_signup"
-	servefile "wave/usecases/serve_file"
-	storageaccess "wave/usecases/storage_access"
+	authlg "github.com/luowensheng/wave/usecases/auth_login"
+	authlo "github.com/luowensheng/wave/usecases/auth_logout"
+	authsg "github.com/luowensheng/wave/usecases/auth_signup"
+	servefile "github.com/luowensheng/wave/usecases/serve_file"
+	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
 )
 
 // WireAll binds all package-level function variables in usecases/* to

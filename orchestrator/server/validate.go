@@ -3,8 +3,8 @@ package servers
 import (
 	"fmt"
 
-	"wave/infra/connections"
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // ValidateConfig runs static checks against the loaded YAML without

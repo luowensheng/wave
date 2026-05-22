@@ -3,7 +3,7 @@ package servers
 import (
 	"net/http"
 
-	"wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/orchestrator/features/auth"
 )
 
 // currentUserIDFromContext returns the username of the authenticated

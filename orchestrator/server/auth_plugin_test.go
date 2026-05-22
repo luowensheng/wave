@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	authfeature "wave/orchestrator/features/auth"
-	"wave/infra/plugins"
+	authfeature "github.com/luowensheng/wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // installRegistry sets a registry for the duration of t.

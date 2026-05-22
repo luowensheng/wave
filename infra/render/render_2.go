@@ -1,7 +1,7 @@
 package render
 
 import (
-	"wave/infra/format"
+	"github.com/luowensheng/wave/infra/format"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +17,7 @@ import (
 // 	"os"
 // 	"path/filepath"
 // 	"regexp"
-// 	"wave/infra/format"
+// 	"github.com/luowensheng/wave/infra/format"
 // 	"strings"
 // 	"text/template"
 // 	"unicode"

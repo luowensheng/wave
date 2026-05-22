@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"wave/infra/inputs"
+	"github.com/luowensheng/wave/infra/inputs"
 )
 
 // NewDataLoaderFromContentLoader wraps an arbitrary ContentLoader in

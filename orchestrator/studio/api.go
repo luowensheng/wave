@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"wave/orchestrator/scaffold"
+	"github.com/luowensheng/wave/orchestrator/scaffold"
 )
 
 // apiHandler returns the http.Handler that serves /api/...

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"wave/infra/oidc"
+	"github.com/luowensheng/wave/infra/oidc"
 
 	"gopkg.in/yaml.v3"
 )

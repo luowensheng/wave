@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"wave/infra/logger"
+	"github.com/luowensheng/wave/infra/logger"
 )
 
 // longLivedClient is a JSON-RPC 2.0 transport that keeps one subprocess

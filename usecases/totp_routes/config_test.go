@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"wave/infra/totp"
+	"github.com/luowensheng/wave/infra/totp"
 )
 
 // fakeStore is a tiny in-memory hook impl that mimics what the

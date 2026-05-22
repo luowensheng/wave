@@ -1,8 +1,8 @@
 package contentloader
 
 import (
-	"wave/orchestrator/features/auth"
-	"wave/domain"
+	"github.com/luowensheng/wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/domain"
 	"encoding/json"
 	"fmt"
 	"io"

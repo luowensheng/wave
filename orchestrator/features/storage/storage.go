@@ -4,10 +4,10 @@
 package storage
 
 import (
-	"wave/domain"
-	"wave/infra/filesystem"
-	"wave/infra/sqlite"
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/domain"
+	"github.com/luowensheng/wave/infra/filesystem"
+	"github.com/luowensheng/wave/infra/sqlite"
+	"github.com/luowensheng/wave/io/http/contentloader"
 	"fmt"
 )
 

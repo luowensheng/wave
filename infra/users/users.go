@@ -2,7 +2,7 @@
 package users
 
 import (
-	"wave/domain"
+	"github.com/luowensheng/wave/domain"
 	"database/sql"
 	"errors"
 	"fmt"

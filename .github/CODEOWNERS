@@ -1,18 +1,18 @@
 # Default owner — gets review request on every PR.
 # Replace `<MAINTAINER>` with the GitHub handle before pushing public.
-*                                       @<MAINTAINER>
+*                                       @luowensheng
 
 # Critical paths — touch with extra care.
-/orchestrator/server/                   @<MAINTAINER>
-/infra/                                 @<MAINTAINER>
-/usecases/                              @<MAINTAINER>
+/orchestrator/server/                   @luowensheng
+/infra/                                 @luowensheng
+/usecases/                              @luowensheng
 
 # Docs and examples — lower bar; community PRs welcome.
-/docs/                                  @<MAINTAINER>
-/examples/                              @<MAINTAINER>
+/docs/                                  @luowensheng
+/examples/                              @luowensheng
 
 # Release engineering and CI — only maintainers should touch.
-/.github/                               @<MAINTAINER>
-/.goreleaser.yml                        @<MAINTAINER>
-/Dockerfile                             @<MAINTAINER>
-/deploy/                                @<MAINTAINER>
+/.github/                               @luowensheng
+/.goreleaser.yml                        @luowensheng
+/Dockerfile                             @luowensheng
+/deploy/                                @luowensheng

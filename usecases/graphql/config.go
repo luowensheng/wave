@@ -23,7 +23,7 @@ import (
 	"io"
 	"net/http"
 
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 type Config struct {

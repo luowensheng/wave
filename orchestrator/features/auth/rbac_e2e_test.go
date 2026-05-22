@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"wave/infra/rbac"
+	"github.com/luowensheng/wave/infra/rbac"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 )

@@ -3,9 +3,9 @@ package auth
 
 import (
 	"context"
-	"wave/infra/common"
-	infrajwt "wave/infra/jwt"
-	"wave/infra/users"
+	"github.com/luowensheng/wave/infra/common"
+	infrajwt "github.com/luowensheng/wave/infra/jwt"
+	"github.com/luowensheng/wave/infra/users"
 	"encoding/json"
 	"fmt"
 	"log"

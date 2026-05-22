@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"wave/infra/plugins"
-	"wave/usecases/routes"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/usecases/routes"
 )
 
 func TestDoctorReportsPluginIssues(t *testing.T) {

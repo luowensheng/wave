@@ -1,9 +1,9 @@
 package servers
 
 import (
-	"wave/infra/inputs"
-	"wave/infra/render"
-	"wave/usecases/routes"
+	"github.com/luowensheng/wave/infra/inputs"
+	"github.com/luowensheng/wave/infra/render"
+	"github.com/luowensheng/wave/usecases/routes"
 	"fmt"
 	"net/http"
 )

@@ -3,7 +3,7 @@ package servers
 import (
 	"net/http"
 
-	infrahttp "wave/infra/http"
+	infrahttp "github.com/luowensheng/wave/infra/http"
 )
 
 // limitFor returns (entry, onFail) for the named case. onFail is nil

@@ -2,7 +2,7 @@ package render
 
 import (
 	"bytes"
-	"wave/infra/format"
+	"github.com/luowensheng/wave/infra/format"
 	"encoding/base64"
 	"fmt"
 	"html"

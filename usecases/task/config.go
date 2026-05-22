@@ -11,11 +11,11 @@ import (
 	"log"
 	"net/http"
 
-	"wave/infra/connections"
-	"wave/infra/inputs"
-	"wave/infra/plugins"
-	"wave/io/http/contentloader"
-	storageaccess "wave/usecases/storage_access"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/inputs"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/io/http/contentloader"
+	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
 )
 
 // GetStorageFn retrieves a named storage backend. Set at boot by the orchestrator.

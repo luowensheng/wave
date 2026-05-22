@@ -86,5 +86,5 @@ Initial public release.
 ### Examples
 - 57 runnable demo applications under `examples/apps/`.
 
-[Unreleased]: https://github.com/<YOUR-ORG>/wave/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/<YOUR-ORG>/wave/releases/tag/v0.1.0
+[Unreleased]: https://github.com/luowensheng/wave/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/luowensheng/wave/releases/tag/v0.1.0

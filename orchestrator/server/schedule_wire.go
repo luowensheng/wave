@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
-	"wave/infra/cron"
-	"wave/infra/plugins"
-	"wave/usecases/schedule"
+	"github.com/luowensheng/wave/infra/cron"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/usecases/schedule"
 )
 
 func (s *Server) startScheduler() error {

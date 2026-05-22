@@ -4,7 +4,7 @@ People with commit access and responsibility for project direction.
 
 | Name | GitHub | Areas |
 |------|--------|-------|
-| TBD | [@TBD](https://github.com/TBD) | All |
+| Lu Wensheng | [@luowensheng](https://github.com/luowensheng) | All |
 
 ## Becoming a maintainer
 

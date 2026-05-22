@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"time"
 
-	"wave/infra/totp"
+	"github.com/luowensheng/wave/infra/totp"
 )
 
 // Hook functions wired by the orchestrator.

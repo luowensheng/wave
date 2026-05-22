@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"wave/infra/render"
+	"github.com/luowensheng/wave/infra/render"
 )
 
 type Config struct {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/io/http/contentloader"
 )
 
 func TestResolvePath(t *testing.T) {

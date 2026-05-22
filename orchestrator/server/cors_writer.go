@@ -3,7 +3,7 @@ package servers
 import (
 	"net/http"
 
-	"wave/infra/connections"
+	"github.com/luowensheng/wave/infra/connections"
 )
 
 // corsResponseWriter intercepts WriteHeader so the configured CORS

@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"strings"
 
-	authfeature "wave/orchestrator/features/auth"
-	"wave/infra/plugins"
-	"wave/infra/plugins/kinds"
+	authfeature "github.com/luowensheng/wave/orchestrator/features/auth"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins/kinds"
 )
 
 // authPluginAdapter adapts the kind-package AuthPlugin (which depends on

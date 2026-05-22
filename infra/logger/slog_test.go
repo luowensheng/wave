@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	infrahttp "wave/infra/http"
+	infrahttp "github.com/luowensheng/wave/infra/http"
 )
 
 func TestFromRequestPicksUpID(t *testing.T) {

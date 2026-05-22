@@ -14,11 +14,13 @@ follow the Covenant.
 ## Reporting
 
 If you witness or experience behavior that violates the Covenant,
-contact the project maintainers privately at:
+contact the project maintainers privately by opening a
+[**GitHub Security Advisory**](https://github.com/luowensheng/wave/security/advisories/new)
+(use it for conduct reports too — it's a private channel that doesn't
+create a public ticket) or by direct message to a maintainer listed
+in [MAINTAINERS.md](MAINTAINERS.md).
 
-> **conduct@TBD** *(replace with a real address before public launch)*
-
-Reports are kept confidential. The maintainers will respond within a
+Reports are kept confidential. Maintainers will respond within a
 reasonable time frame and follow the enforcement ladder described in
 the Covenant.
 

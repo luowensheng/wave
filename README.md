@@ -4,9 +4,10 @@ a new visitor either commit to spending an hour on Wave, or rule it
 out — within 60 seconds. Anything that doesn't serve that goal lives
 in docs/.
 
-Placeholders that need replacing before public push:
-  <YOUR-ORG>     → the GitHub org or user name (e.g. `wave-dev`)
-  <DISCORD>      → permanent Discord invite code
+Future placeholders to replace once they exist:
+  install.sh URL          → wave.dev or a stable GitHub Pages url
+  Homebrew tap            → publish luowensheng/homebrew-wave
+  Discord invite          → currently disabled; uncomment when ready
 -->
 
 <p align="center">
@@ -16,11 +17,10 @@ Placeholders that need replacing before public push:
     <strong>A declarative HTTP server framework — define your backend in YAML, ship a single binary.</strong>
   </p>
   <p align="center">
-    <a href="https://github.com/<YOUR-ORG>/wave/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/<YOUR-ORG>/wave/actions/workflows/ci.yml/badge.svg"></a>
-    <a href="https://github.com/<YOUR-ORG>/wave/releases"><img alt="Release" src="https://img.shields.io/github/v/release/<YOUR-ORG>/wave?display_name=tag&sort=semver"></a>
-    <a href="https://github.com/<YOUR-ORG>/wave/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+    <a href="https://github.com/luowensheng/wave/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/luowensheng/wave/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="https://github.com/luowensheng/wave/releases"><img alt="Release" src="https://img.shields.io/github/v/release/luowensheng/wave?display_name=tag&sort=semver"></a>
+    <a href="https://github.com/luowensheng/wave/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
     <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/go-1.24+-00ADD8.svg"></a>
-    <a href="https://discord.gg/<DISCORD>"><img alt="Discord" src="https://img.shields.io/discord/0?label=Discord"></a>
   </p>
 </p>
 
@@ -101,22 +101,22 @@ and 404 handling. No Go code required.
 curl -sSfL https://wave.dev/install.sh | sh           # <-- TODO: host install.sh
 
 # Or via Homebrew
-brew install <YOUR-ORG>/tap/wave                      # <-- TODO: publish formula
+brew install luowensheng/tap/wave                      # <-- TODO: publish formula
 
 # Or via Go
-go install github.com/<YOUR-ORG>/wave/orchestrator@latest
+go install github.com/luowensheng/wave/orchestrator@latest
 
 # Or via Docker
 docker run --rm -p 8080:8080 \
   -v $(pwd)/server.yaml:/server.yaml \
-  ghcr.io/<YOUR-ORG>/wave:latest serve /server.yaml --port 8080
+  ghcr.io/luowensheng/wave:latest serve /server.yaml --port 8080
 ```
 
 ## Quickstart (30 seconds)
 
 ```bash
 # 1. Clone the repo for an example to copy
-git clone https://github.com/<YOUR-ORG>/wave.git
+git clone https://github.com/luowensheng/wave.git
 cd wave
 
 # 2. Run a demo
@@ -160,9 +160,9 @@ runnable demo applications**.
 
 ## Community
 
-- **[GitHub Discussions](https://github.com/<YOUR-ORG>/wave/discussions)** — questions, ideas, show & tell
-- **[Discord](https://discord.gg/<DISCORD>)** — live chat
-- **[Issues](https://github.com/<YOUR-ORG>/wave/issues)** — bug reports and feature requests
+- **[GitHub Discussions](https://github.com/luowensheng/wave/discussions)** — questions, ideas, show & tell
+- **[Issues](https://github.com/luowensheng/wave/issues)** — bug reports and feature requests
+- Discord — *coming soon*
 
 ## Status
 
@@ -181,7 +181,7 @@ configure.
 PRs welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the
 process and [CLAUDE.md](CLAUDE.md) for the architecture.
 
-Good first issues: look for the [`good-first-issue`](https://github.com/<YOUR-ORG>/wave/labels/good-first-issue) label.
+Good first issues: look for the [`good-first-issue`](https://github.com/luowensheng/wave/labels/good-first-issue) label.
 
 ## License
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"wave/domain"
-	"wave/infra/jwt"
+	"github.com/luowensheng/wave/domain"
+	"github.com/luowensheng/wave/infra/jwt"
 )
 
 // AuthPluginRequest mirrors infra/plugins/kinds.AuthRequest at the

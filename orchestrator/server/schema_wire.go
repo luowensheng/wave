@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"wave/infra/jsonschema"
+	"github.com/luowensheng/wave/infra/jsonschema"
 )
 
 // schemaMiddleware builds an http middleware that validates the JSON

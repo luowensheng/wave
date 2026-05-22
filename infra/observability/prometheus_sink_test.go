@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"wave/infra/metrics"
+	"github.com/luowensheng/wave/infra/metrics"
 )
 
 func TestPrometheusSink_CounterEmits(t *testing.T) {

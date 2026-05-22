@@ -5,8 +5,8 @@ import (
 	"log"
 	"strings"
 
-	"wave/infra/oauth"
-	oauthrt "wave/usecases/oauth_routes"
+	"github.com/luowensheng/wave/infra/oauth"
+	oauthrt "github.com/luowensheng/wave/usecases/oauth_routes"
 )
 
 // setupOAuth walks the configured auth blocks and builds an

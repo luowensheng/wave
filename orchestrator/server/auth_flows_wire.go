@@ -13,18 +13,18 @@ import (
 	"sync"
 	"time"
 
-	authfeature "wave/orchestrator/features/auth"
+	authfeature "github.com/luowensheng/wave/orchestrator/features/auth"
 
-	"wave/infra/cookies"
-	infrajwt "wave/infra/jwt"
-	"wave/infra/mailer"
-	"wave/infra/oauth"
-	"wave/infra/sms"
-	"wave/infra/verify"
+	"github.com/luowensheng/wave/infra/cookies"
+	infrajwt "github.com/luowensheng/wave/infra/jwt"
+	"github.com/luowensheng/wave/infra/mailer"
+	"github.com/luowensheng/wave/infra/oauth"
+	"github.com/luowensheng/wave/infra/sms"
+	"github.com/luowensheng/wave/infra/verify"
 
-	magic "wave/usecases/magic_link"
-	oauthrt "wave/usecases/oauth_routes"
-	totprt "wave/usecases/totp_routes"
+	magic "github.com/luowensheng/wave/usecases/magic_link"
+	oauthrt "github.com/luowensheng/wave/usecases/oauth_routes"
+	totprt "github.com/luowensheng/wave/usecases/totp_routes"
 )
 
 // initAuthFlows wires senders, the verify Issuer, and the TOTP

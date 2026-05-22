@@ -1,7 +1,7 @@
 package features
 
 import (
-	"wave/domain"
+	"github.com/luowensheng/wave/domain"
 	"net/http"
 	"time"
 )

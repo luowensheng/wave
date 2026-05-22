@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"wave/infra/audit"
-	"wave/infra/connections"
-	infrahttp "wave/infra/http"
-	"wave/infra/metrics"
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/audit"
+	"github.com/luowensheng/wave/infra/connections"
+	infrahttp "github.com/luowensheng/wave/infra/http"
+	"github.com/luowensheng/wave/infra/metrics"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // adminPageData is what the dashboard template renders.

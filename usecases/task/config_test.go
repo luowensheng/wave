@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"wave/infra/connections"
-	"wave/infra/plugins"
-	storageaccess "wave/usecases/storage_access"
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/plugins"
+	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
+	"github.com/luowensheng/wave/io/http/contentloader"
 )
 
 // fakeClient is a test double for plugins.Client.

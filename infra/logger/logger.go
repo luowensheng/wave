@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"wave/infra/common"
-	"wave/infra/logger/loglevel"
+	"github.com/luowensheng/wave/infra/common"
+	"github.com/luowensheng/wave/infra/logger/loglevel"
 	"time"
 )
 

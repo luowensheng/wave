@@ -10,7 +10,7 @@ package kinds
 import (
 	"context"
 
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // JSON-RPC method names exposed by handler-kind plugins.

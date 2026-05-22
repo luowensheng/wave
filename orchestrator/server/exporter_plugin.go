@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"wave/infra/observability"
-	"wave/infra/plugins"
-	"wave/infra/plugins/kinds"
+	"github.com/luowensheng/wave/infra/observability"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins/kinds"
 )
 
 // ObservabilityConfig is the top-level YAML block:

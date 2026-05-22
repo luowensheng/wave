@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/io/http/contentloader"
 )
 
 // fakeStorage is a programmable StoragePlugin for adapter tests.

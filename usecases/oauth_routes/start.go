@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"wave/infra/oauth"
+	"github.com/luowensheng/wave/infra/oauth"
 )
 
 const (

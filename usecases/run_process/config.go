@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"wave/infra/logger"
-	"wave/infra/process"
+	"github.com/luowensheng/wave/infra/logger"
+	"github.com/luowensheng/wave/infra/process"
 )
 
 type Config struct {

@@ -5,7 +5,7 @@
 package sessions
 
 import (
-	"wave/domain"
+	"github.com/luowensheng/wave/domain"
 	"errors"
 	"fmt"
 	"sync"

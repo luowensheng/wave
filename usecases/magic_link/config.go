@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"wave/infra/mailer"
-	"wave/infra/verify"
+	"github.com/luowensheng/wave/infra/mailer"
+	"github.com/luowensheng/wave/infra/verify"
 )
 
 // RequestConfig handles the "send me a magic link" POST.

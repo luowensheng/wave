@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
-	"wave/infra/render"
+	"github.com/luowensheng/wave/infra/render"
 	"encoding/json"
 	"fmt"
 	"io"

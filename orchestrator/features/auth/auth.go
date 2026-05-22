@@ -2,10 +2,10 @@
 package auth
 
 import (
-	"wave/domain"
-	"wave/infra/cookies"
-	infrajwt "wave/infra/jwt"
-	"wave/infra/sessions"
+	"github.com/luowensheng/wave/domain"
+	"github.com/luowensheng/wave/infra/cookies"
+	infrajwt "github.com/luowensheng/wave/infra/jwt"
+	"github.com/luowensheng/wave/infra/sessions"
 	"net/http"
 	"os"
 	"strings"

@@ -2,7 +2,7 @@
 package auth
 
 import (
-	infrajwt "wave/infra/jwt"
+	infrajwt "github.com/luowensheng/wave/infra/jwt"
 	"fmt"
 	"net/http"
 	"strings"

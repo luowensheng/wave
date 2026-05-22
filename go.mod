@@ -1,4 +1,4 @@
-module wave
+module github.com/luowensheng/wave
 
 go 1.24.1
 

@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"wave/infra/inputs"
-	"wave/infra/render"
+	"github.com/luowensheng/wave/infra/inputs"
+	"github.com/luowensheng/wave/infra/render"
 )
 
 type Config struct {

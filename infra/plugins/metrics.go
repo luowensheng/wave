@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"wave/infra/metrics"
-	"wave/infra/observability"
+	"github.com/luowensheng/wave/infra/metrics"
+	"github.com/luowensheng/wave/infra/observability"
 )
 
 // instrumentedClient decorates a Client with per-plugin call counters

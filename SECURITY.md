@@ -16,13 +16,10 @@ the most recent two minors.
 **Do not file a public GitHub issue for security bugs.** Reports filed
 publicly give attackers time to exploit before a fix is out.
 
-Instead, please email:
-
-> **security@TBD** *(replace with a real address before public launch)*
-
-Or, if you prefer GitHub's private channel, use
-[GitHub Security Advisories](https://github.com/<YOUR-ORG>/wave/security/advisories/new)
-on this repository (no public ticket is created).
+Please use
+[**GitHub Security Advisories**](https://github.com/luowensheng/wave/security/advisories/new)
+to report privately. A maintainer is notified directly and no public
+ticket is created.
 
 Please include:
 

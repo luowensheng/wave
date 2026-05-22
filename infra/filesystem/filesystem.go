@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"wave/domain"
-	"wave/infra/common"
-	"wave/io/http/contentloader"
+	"github.com/luowensheng/wave/domain"
+	"github.com/luowensheng/wave/infra/common"
+	"github.com/luowensheng/wave/io/http/contentloader"
 	"strings"
 	"text/template"
 )

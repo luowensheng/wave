@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"wave/infra/render"
-	"wave/usecases/routes"
+	"github.com/luowensheng/wave/infra/render"
+	"github.com/luowensheng/wave/usecases/routes"
 )
 
 // Config holds the configuration for the API handler.

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"wave/infra/plugins/kinds"
-	storageaccess "wave/usecases/storage_access"
+	"github.com/luowensheng/wave/infra/plugins/kinds"
+	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
 )
 
 // fakeStorage is an in-memory StoragePlugin used by the wiring test. It

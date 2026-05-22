@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"wave/infra/plugins"
-	"wave/infra/plugins/kinds"
-	"wave/infra/secrets"
+	"github.com/luowensheng/wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins/kinds"
+	"github.com/luowensheng/wave/infra/secrets"
 )
 
 // secretsResolveTimeout bounds individual plugin Resolve calls during

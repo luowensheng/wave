@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"wave/infra/plugins"
+	"github.com/luowensheng/wave/infra/plugins"
 )
 
 // fakeClient implements plugins.Client.

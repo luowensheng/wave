@@ -1,6 +1,6 @@
 package routes
 
-import oauthrt "wave/usecases/oauth_routes"
+import oauthrt "github.com/luowensheng/wave/usecases/oauth_routes"
 
 // OAuthStartConfig — GET /login/<provider>; redirects to the IdP's consent screen.
 type OAuthStartConfig = oauthrt.StartConfig

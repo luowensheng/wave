@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"wave/infra/connections"
-	"wave/infra/plugins"
-	pluginuse "wave/usecases/plugin"
-	streampub "wave/usecases/stream_publish"
+	"github.com/luowensheng/wave/infra/connections"
+	"github.com/luowensheng/wave/infra/plugins"
+	pluginuse "github.com/luowensheng/wave/usecases/plugin"
+	streampub "github.com/luowensheng/wave/usecases/stream_publish"
 )
 
 func buildEchoPlugin(t *testing.T) string {
