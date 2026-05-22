@@ -11,9 +11,10 @@ import (
 )
 
 // validateStorageRefs walks every storage_access route and confirms
-// its `source` resolves to either a built-in storage backend or a
-// kind=storage plugin. Fails the boot if any route points at an
-// unknown source so we never serve a 500 at request time.
+// its `source` (single-step) or each step's `source` (pipeline) resolves
+// to either a built-in storage backend or a kind=storage plugin. Fails
+// the boot if any route points at an unknown source so we never serve a
+// 500 at request time.
 func (s *Server) validateStorageRefs() error {
 	if storageaccess.GetStorageFn == nil {
 		// No storage_access routes will work without a wired lookup;
@@ -24,7 +25,26 @@ func (s *Server) validateStorageRefs() error {
 		if r == nil || r.Type != "storage-access" || r.StorageAccessConfig == nil {
 			continue
 		}
-		src := r.StorageAccessConfig.Source
+		cfg := r.StorageAccessConfig
+
+		if len(cfg.Steps) > 0 {
+			// Pipeline mode — validate each step's source.
+			for i, step := range cfg.Steps {
+				if step.Source == "" {
+					return fmt.Errorf("route %q: pipeline step %d: source is empty", r.Path, i)
+				}
+				if _, ok := storageaccess.GetStorageFn(step.Source); !ok {
+					return fmt.Errorf(
+						"route %q: pipeline step %d: source %q does not resolve to a built-in storage or kind=storage plugin",
+						r.Path, i, step.Source,
+					)
+				}
+			}
+			continue
+		}
+
+		// Single-step mode.
+		src := cfg.Source
 		if src == "" {
 			return fmt.Errorf("route %q: storage-access source is empty", r.Path)
 		}

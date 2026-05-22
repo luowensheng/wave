@@ -1,0 +1,16 @@
+# modules/auth-routes.yaml — composed by app.yaml with NO prefix.
+# The oauth callback pins itself literal with `absolute: true` so it
+# stays at /oauth/callback even if a host mounts this module under a
+# prefix (it matches the redirect_uri registered with the provider).
+routes:
+  - path: /login
+    method: GET
+    type: file
+    file: { filepath: ./static/login.html }
+
+  - path: /oauth/callback
+    method: GET
+    type: content
+    absolute: true # stays /oauth/callback even under a prefix
+    content:
+      body: '{"ok":true}'

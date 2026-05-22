@@ -1,0 +1,56 @@
+# background-task-demo — fire-and-forget plugin call with SSE results.
+#
+#   wave serve examples/apps/background-task-demo/server.yaml --port 8630
+#
+# Subscribe to events:
+#   curl -N http://127.0.0.1:8630/events/results
+#
+# Trigger task (returns 202 immediately):
+#   curl -X POST http://127.0.0.1:8630/api/process \
+#        -H "Content-Type: application/json" \
+#        -d '{"prompt":"hello"}'
+
+default:
+  host: 127.0.0.1
+  port: 8630
+
+storage:
+  tasks_db:
+    type: sqlite
+    path: ./tasks.db
+    tables:
+      results:
+        columns:
+          - id INTEGER PRIMARY KEY AUTOINCREMENT
+          - task_id TEXT NOT NULL DEFAULT 'bg'
+          - content TEXT NOT NULL
+          - created_at TEXT NOT NULL DEFAULT (datetime('now'))
+
+plugins:
+  echo:
+    transport: process
+    command: "python3 -c \"import sys,json; body=json.loads(sys.stdin.readline()); print(json.dumps({'content': 'Echo: ' + body.get('body', {}).get('prompt','?')})); sys.stdout.flush()\""
+
+connections:
+  results:
+    type: sse
+    subscribe_path: /events/results
+    buffer_size: 64
+
+routes:
+  - path: /api/process
+    method: POST
+    type: task
+    inputs:
+      - { name: prompt, source: body, type: string, required: true }
+    task:
+      plugin: echo
+      trigger_key: process
+      streaming: false
+      connection: results
+      event_type: result
+      store:
+        source: tasks_db
+        inputs:
+          content: event.content   # emitted event payload, "content" field
+        execute: "INSERT INTO results (content) VALUES ({{content}})"

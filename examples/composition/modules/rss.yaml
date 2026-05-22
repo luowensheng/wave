@@ -1,0 +1,51 @@
+# modules/rss.yaml
+#   standalone:  wave serve modules/rss.yaml      (externs resolve, mounts at /)
+#   composed:    included by app.yaml under /rss
+#
+# Borrows db / gemini / feed per-resource at the use-site. It
+# contributes ZERO tables of its own — the library owns them.
+storage:
+  db: { extern: ../shared/app-db.yaml }
+plugins:
+  gemini: { extern: ../shared/llm.yaml }
+connections:
+  feed: { extern: ../shared/events.yaml } # borrowed → keeps canonical /events/feed
+
+requests:
+  fetch_feed:
+    url: "{{url}}"
+    method: GET
+    timeout: 10
+
+schedule:
+  drain:
+    every: 30s
+    action:
+      type: storage
+      source: db
+      execute: "SELECT id, feed_url FROM rss_queue WHERE status='pending' LIMIT 5"
+      output: peek
+    then:
+      - type: for_each
+        in: peek.data
+        as: task
+        do:
+          - { type: api, ref: fetch_feed, vars: { url: task.feed_url }, output: resp }
+          - type: storage
+            source: db
+            inputs: { url: task.feed_url, body: resp.text }
+            execute: "INSERT OR IGNORE INTO rss_cache(url,title) VALUES({{url}},{{body}})"
+          - type: storage
+            source: db
+            inputs: { id: task.id }
+            execute: "UPDATE rss_queue SET status='done' WHERE id={{id}}"
+
+routes:
+  - path: /feeds # standalone: /feeds  ·  composed: /rss/feeds
+    method: GET
+    type: storage-access
+    storage-access:
+      source: db
+      execute: "SELECT url,title FROM rss_cache LIMIT 50"
+      response_content_type: application/json
+      output_template: "{{toJSON .Data}}"

@@ -2,8 +2,6 @@ package servers
 
 import (
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // RouteSummaryRow is the public, machine-readable shape returned by
@@ -24,14 +22,24 @@ func (s *Server) RouteSummaries() ([]RouteSummaryRow, error) {
 	if s == nil || s.Config == nil {
 		return nil, nil
 	}
-	cfg := s.Config
+	return RouteSummariesFromConfig(s.Config)
+}
 
-	// loadConfig keeps routes as RawRoutes; materialize them now.
-	if len(cfg.Routes) == 0 {
-		if b, err := cfg.RawRoutes.Bytes(); err == nil && len(b) > 0 {
-			if err := yaml.Unmarshal(b, &cfg.Routes); err != nil {
-				return nil, err
-			}
+// RouteSummariesFromConfig is the Config-level route inspector. It
+// materializes the merged + prefixed route set (composition-aware:
+// includes folded in, prefixes applied, externs already resolved by
+// the resolver in loadConfig) and returns one row per route. Used by
+// `wave routes`, the Studio UI, and any surface that must reflect the
+// same composed view the running server exposes — single source of
+// truth, no per-consumer YAML re-walking.
+func RouteSummariesFromConfig(cfg *Config) ([]RouteSummaryRow, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+	// Structural inspection: args==nil leaves $x literal (no $arg/$env).
+	if !cfg.routesMaterialized {
+		if err := materializeRoutes(cfg, nil); err != nil {
+			return nil, err
 		}
 	}
 

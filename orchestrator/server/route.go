@@ -13,12 +13,24 @@ type  Route struct {
 	Method  string   `yaml:"method,omitempty" json:"method,omitempty"`
 	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
 
+	// Id is an optional handle for this route. When set, the route
+	// can be referenced from inside `type: match` cases via
+	// `route: <id>`. A route with `id:` but no `path:` is
+	// library-only — never registered as an endpoint, only reachable
+	// by id.
+	Id string `yaml:"id,omitempty" json:"id,omitempty"`
+
 	Script      string `yaml:"script,omitempty" json:"script,omitempty"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
 
 	ValidateCSRF bool `yaml:"validate_csrf,omitempty" json:"validate_csrf,omitempty"`
 	IncludeCSRF  bool `yaml:"include_csrf,omitempty" json:"include_csrf,omitempty"`
+
+	// Absolute pins this route's Path and its inbound redirect/callback
+	// fields literal under module composition (no prefix applied). Use
+	// for OAuth/webhook callbacks registered with third parties.
+	Absolute bool `yaml:"absolute,omitempty" json:"absolute,omitempty"`
 
 	Auth []string `yaml:"auth,omitempty" json:"auth,omitempty"`
 
@@ -38,6 +50,8 @@ type  Route struct {
 	PluginConfig        *routes.PluginConfig        `yaml:"plugin,omitempty" json:"plugin,omitempty"`
 	StreamPublishConfig *routes.StreamPublishConfig `yaml:"stream-publish,omitempty" json:"stream_publish,omitempty"`
 	GraphQLConfig       *routes.GraphQLConfig       `yaml:"graphql,omitempty" json:"graphql,omitempty"`
+	TaskConfig          *routes.TaskConfig          `yaml:"task,omitempty" json:"task,omitempty"`
+	FetchConfig         *routes.FetchConfig         `yaml:"fetch,omitempty" json:"fetch,omitempty"`
 
 	MagicLinkRequestConfig  *routes.MagicLinkRequestConfig  `yaml:"magic-link-request,omitempty" json:"magic_link_request,omitempty"`
 	MagicLinkConsumeConfig  *routes.MagicLinkConsumeConfig  `yaml:"magic-link-consume,omitempty" json:"magic_link_consume,omitempty"`
@@ -47,6 +61,8 @@ type  Route struct {
 
 	OAuthStartConfig    *routes.OAuthStartConfig    `yaml:"oauth-start,omitempty" json:"oauth_start,omitempty"`
 	OAuthCallbackConfig *routes.OAuthCallbackConfig `yaml:"oauth-callback,omitempty" json:"oauth_callback,omitempty"`
+
+	MatchConfig *routes.MatchConfig `yaml:"match,omitempty" json:"match,omitempty"`
 
 	config    RouteConfig // intentionally untagged
 	Whitelist []string    `yaml:"ip_whitelist,omitempty" json:"ip_whitelist,omitempty"`
@@ -179,7 +195,10 @@ type WebhookSigConfig struct {
 }
 
 func (r *Route) Validate() error {
-	if r.Path == "" {
+	// Library-only routes have `id:` but no `path:` — they're never
+	// registered on the mux, only reachable via `route: <id>` from
+	// inside `type: match` cases. Skip the path check for those.
+	if r.Path == "" && r.Id == "" {
 		return fmt.Errorf("missing path")
 	}
 	return nil
@@ -296,6 +315,10 @@ func (route *Route) getRouteConfig() (RouteConfig, error) {
 		routeConfig = route.StreamPublishConfig
 	case "graphql":
 		routeConfig = route.GraphQLConfig
+	case "task":
+		routeConfig = route.TaskConfig
+	case "fetch":
+		routeConfig = route.FetchConfig
 	case "magic-link-request":
 		routeConfig = route.MagicLinkRequestConfig
 	case "magic-link-consume":
@@ -310,6 +333,8 @@ func (route *Route) getRouteConfig() (RouteConfig, error) {
 		routeConfig = route.OAuthStartConfig
 	case "oauth-callback":
 		routeConfig = route.OAuthCallbackConfig
+	case "match":
+		routeConfig = route.MatchConfig
 	default:
 		// log.Fatalf("Unknown route type: %s", route.Type)
 		return nil, fmt.Errorf("unknown route type: %s", route.Type)

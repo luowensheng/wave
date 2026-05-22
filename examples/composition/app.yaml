@@ -1,0 +1,17 @@
+# app.yaml — the only "server" file. Composes modules under prefixes.
+#
+# Effective result after merge:
+#   auth-routes  GET /login              -> /login            (no prefix)
+#   auth-routes  GET /oauth/callback     -> /oauth/callback   (absolute:true)
+#   rss          GET /feeds              -> /rss/feeds        (prefixed)
+#   rss          borrowed `feed` SSE     -> /events/feed      (canonical)
+#
+# db / gemini / feed each appear once: every module's extern: resolves
+# to the same canonical library identity → strict-merge dedups.
+default:
+  port: 9939
+  expected_content_type: application/json
+
+include:
+  - { file: ./modules/auth-routes.yaml } # no prefix → mounts at /
+  - { file: ./modules/rss.yaml, prefix: /rss } # authored inbound paths shift

@@ -1,0 +1,18 @@
+# shared/app-db.yaml — the ONE owner of `db` and its tables.
+# A typed library: `kind:` replaces the wrapper key, resources at root.
+# Borrowed by modules via:  storage: { db: { extern: ../shared/app-db.yaml } }
+kind: storage
+db:
+  type: sqlite
+  path: ./data/app.db
+  tables:
+    rss_queue:
+      columns:
+        - "id INTEGER PRIMARY KEY AUTOINCREMENT"
+        - "feed_url TEXT UNIQUE"
+        - "status TEXT"
+    rss_cache:
+      columns:
+        - "id INTEGER PRIMARY KEY AUTOINCREMENT"
+        - "url TEXT"
+        - "title TEXT"

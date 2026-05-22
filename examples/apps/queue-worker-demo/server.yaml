@@ -1,0 +1,137 @@
+# queue-worker-demo — pure YAML queue worker pattern.
+#
+#   wave serve examples/apps/queue-worker-demo/server.yaml --port 8650
+#
+# Demonstrates the new `for_each` and `api` sink types — together they
+# replace what would otherwise need a separate worker process. Every 5s
+# the scheduler peeks N pending tasks, calls an external HTTP endpoint
+# per task, stores the response, and acks the row. No Go code, no plugin.
+#
+# Try it:
+#   curl -X POST http://127.0.0.1:8650/enqueue -d '{"url":"https://httpbin.org/uuid"}'
+#   curl -X POST http://127.0.0.1:8650/enqueue -d '{"url":"https://httpbin.org/ip"}'
+#   # wait ~5s
+#   curl http://127.0.0.1:8650/results
+
+default:
+  host: 127.0.0.1
+  port: 8650
+  expected_content_type: application/json
+
+# Named outbound request used by the scheduler's per-iteration api sink.
+# `{{url}}` is substituted from the iteration variable on each tick.
+requests:
+  fetch_url:
+    url: "{{url}}"
+    method: GET
+    timeout: 10
+    retry_count: 1
+
+storage:
+  q:
+    type: sqlite
+    path: ./queue.db
+    tables:
+      tasks:
+        columns:
+          - id INTEGER PRIMARY KEY AUTOINCREMENT
+          - url TEXT NOT NULL
+          - status TEXT NOT NULL DEFAULT 'pending'  # pending | done | failed
+          - attempts INTEGER NOT NULL DEFAULT 0
+          - enqueued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          - done_at DATETIME
+      results:
+        columns:
+          - id INTEGER PRIMARY KEY AUTOINCREMENT
+          - task_id INTEGER NOT NULL
+          - url TEXT NOT NULL
+          - status_code INTEGER NOT NULL
+          - body TEXT NOT NULL
+          - fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+schedule:
+  # Every 5s: peek up to 5 pending tasks, fetch each URL, store the
+  # response body and status, mark the task done. The whole worker
+  # loop is expressed in YAML — the for_each sink iterates the
+  # action's array result and runs the nested `do:` pipeline per row.
+  drain_queue:
+    every: 5s
+    action:
+      type: storage
+      source: q
+      execute: |
+        SELECT id, url FROM tasks
+        WHERE status = 'pending'
+        ORDER BY id
+        LIMIT 5
+      output: peek                # accum["peek"] = {"data": [{id, url}, ...]}
+    then:
+      - type: for_each
+        in: peek.data             # iterate the rows
+        as: task                  # each row → accum["task"]
+        do:
+          # 1. Outbound HTTP — result lands in accum["resp"] with these keys:
+          #      resp.text         (string) raw response body
+          #      resp.json         (map)    parsed body, present iff JSON
+          #      resp.status       (int)    HTTP status code
+          #      resp.status_text  (string) full status line
+          #      resp.headers      (map)    response headers
+          - type: api
+            ref: fetch_url
+            vars:
+              url: task.url
+            output: resp
+
+          # 2. Persist the response keyed to the task. Each from-path
+          # ends in a field whose name encodes its type — there is no
+          # ambiguity about whether `body` is a string or a JSON object.
+          - type: storage
+            source: q
+            inputs:
+              task_id:     task.id          # int   (from inputs schema)
+              url:         task.url         # string
+              status_code: resp.status      # int
+              body:        resp.text        # string — raw response body
+            execute: |
+              INSERT INTO results(task_id, url, status_code, body)
+              VALUES({{task_id}}, {{url}}, {{status_code}}, {{body}})
+
+          # 3. Mark the task done
+          - type: storage
+            source: q
+            inputs:
+              id: task.id
+            execute: "UPDATE tasks SET status='done', done_at=datetime('now') WHERE id={{id}}"
+
+routes:
+  # Enqueue a URL to be fetched.
+  - path: /enqueue
+    method: POST
+    type: storage-access
+    inputs:
+      - { name: url, source: body, type: string, required: true, min: 1, max: 500 }
+    storage-access:
+      source: q
+      execute: "INSERT INTO tasks(url) VALUES({{url}})"
+      response_content_type: application/json
+      output_template: '{"id": {{.LastInsertID}}, "status": "queued"}'
+
+  # Inspect the queue.
+  - path: /tasks
+    method: GET
+    type: storage-access
+    storage-access:
+      source: q
+      execute: "SELECT id, url, status, attempts, enqueued_at, done_at FROM tasks ORDER BY id DESC LIMIT 50"
+      response_content_type: application/json
+      output_template: "{{toJSON .Data}}"
+
+  # Inspect the fetched results.
+  - path: /results
+    method: GET
+    type: storage-access
+    storage-access:
+      source: q
+      execute: "SELECT id, task_id, url, status_code, fetched_at FROM results ORDER BY id DESC LIMIT 50"
+      response_content_type: application/json
+      output_template: "{{toJSON .Data}}"

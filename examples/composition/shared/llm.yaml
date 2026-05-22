@@ -1,0 +1,7 @@
+# shared/llm.yaml — the ONE owner of the `gemini` plugin.
+# Borrowed by modules via:  plugins: { gemini: { extern: ../shared/llm.yaml } }
+kind: plugins
+gemini:
+  transport: http
+  address: "http://localhost:9000"
+  timeout: 10s

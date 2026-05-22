@@ -1,0 +1,99 @@
+# match-route-demo — declarative request routing via `type: match`.
+#
+# One path (/home) fans out to several handlers based on simple
+# request-envelope predicates: device (User-Agent regex), A/B variant
+# (cookie), locale (query param), and method. Falls through to a
+# library-only default route referenced by id.
+#
+#   wave serve examples/apps/match-route-demo/server.yaml --port 8505
+#
+# Try:
+#   curl http://localhost:8505/home                                     # default
+#   curl -H 'User-Agent: iPhone' http://localhost:8505/home             # mobile
+#   curl -b 'variant=beta' http://localhost:8505/home                   # beta
+#   curl 'http://localhost:8505/home?lang=es'                           # spanish
+#   curl -X POST -d 'name=ada' http://localhost:8505/home               # POST
+
+default:
+  host: 127.0.0.1
+  port: 8505
+
+# Server-wide catch-all. Any request whose path no other registered
+# route claims falls through to this handler. The route's `path` is
+# ignored (always mounted at /).
+default_route:
+  type: content
+  content:
+    status_code: 404
+    headers: [["Content-Type", "text/plain"]]
+    body: "catch-all: nothing matched that path"
+
+routes:
+  # ─── Library-only routes ─────────────────────────────────────────
+  # These have an `id` but no `path`, so they are never registered
+  # as endpoints. They exist solely to be referenced by id from
+  # match cases below.
+
+  - id: default_home
+    type: content
+    content:
+      status_code: 200
+      headers: [["Content-Type", "text/plain"]]
+      body: "default home (no predicate matched)"
+
+  - id: beta_home
+    type: content
+    content:
+      status_code: 200
+      headers: [["Content-Type", "text/plain"]]
+      body: "beta variant"
+
+  - id: post_home
+    type: content
+    content:
+      status_code: 201
+      headers: [["Content-Type", "text/plain"]]
+      body: "POST handler"
+
+  # ─── Normal route with both id AND path ──────────────────────────
+  # Registered at /m/home (so you can hit it directly) and also
+  # referenced by id from the match below.
+
+  - id: mobile_home
+    path: /m/home
+    type: content
+    content:
+      status_code: 200
+      headers: [["Content-Type", "text/plain"]]
+      body: "mobile home"
+
+  # ─── The match route ─────────────────────────────────────────────
+
+  - path: /home
+    type: match
+    match:
+      cases:
+        - when: header
+          match:
+            user-agent: { regex: "Mobile|Android|iPhone|iPad" }
+          route: mobile_home      # by id
+
+        - when: cookie
+          match: { variant: beta }
+          route: beta_home
+
+        - when: query
+          match: { lang: { prefix: es } }
+          route:                  # inline definition
+            type: content
+            content:
+              status_code: 200
+              headers: [["Content-Type", "text/plain"]]
+              body: "hola desde inline"
+
+        - when: method
+          match: POST
+          route: post_home
+
+      default:
+        route: default_home

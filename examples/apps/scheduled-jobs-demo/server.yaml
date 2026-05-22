@@ -1,0 +1,63 @@
+# scheduled-jobs-demo — scheduled action + then sinks.
+#
+#   wave serve examples/apps/scheduled-jobs-demo/server.yaml --port 8640
+#
+# Watch SSE feed:
+#   curl -N http://127.0.0.1:8640/events/feed
+#
+# The scheduler polls every 10s, publishes a timestamp event to SSE,
+# and writes it to storage.
+
+default:
+  host: 127.0.0.1
+  port: 8640
+
+storage:
+  log_db:
+    type: sqlite
+    path: ./scheduled.db
+    tables:
+      ticks:
+        columns:
+          - id INTEGER PRIMARY KEY AUTOINCREMENT
+          - body TEXT NOT NULL
+          - created_at TEXT NOT NULL DEFAULT (datetime('now'))
+
+plugins:
+  ticker:
+    transport: process
+    command: "python3 -c \"import sys,json,time; print(json.dumps({'tick': int(time.time()), 'msg': 'scheduled tick'})); sys.stdout.flush()\""
+
+connections:
+  feed:
+    type: sse
+    subscribe_path: /events/feed
+    buffer_size: 128
+
+schedule:
+  tick_every_10s:
+    every: 10s
+    action:
+      type: plugin
+      plugin: ticker
+      trigger_key: tick
+      output: tick              # action result stored as accum["tick"]
+    then:
+      - type: publish
+        connection: feed
+        event_type: tick
+      - type: storage
+        source: log_db
+        inputs:
+          body: tick            # accum["tick"] — whole result map, JSON-encoded
+        execute: "INSERT INTO ticks (body) VALUES ({{body}})"
+
+routes:
+  - path: /ticks
+    method: GET
+    type: storage-access
+    storage-access:
+      source: log_db
+      execute: "SELECT id, body, created_at FROM ticks ORDER BY id DESC LIMIT 20"
+      response_content_type: application/json
+      output_template: '{{toJSON .Data}}'

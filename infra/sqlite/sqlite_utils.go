@@ -271,6 +271,72 @@ func convertValue(value string, columnType string) interface{} {
 	return value // Default to string
 }
 
+// splitStatements splits a multi-statement SQL script into individual
+// statements at `;` boundaries, respecting single- and double-quoted
+// string literals. Empty statements (after trimming) are dropped.
+func splitStatements(sql string) []string {
+	var stmts []string
+	var cur strings.Builder
+	inSingle := false
+	inDouble := false
+
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		switch ch {
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+			cur.WriteByte(ch)
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+			cur.WriteByte(ch)
+		case ';':
+			if inSingle || inDouble {
+				cur.WriteByte(ch)
+			} else {
+				if stmt := strings.TrimSpace(cur.String()); stmt != "" {
+					stmts = append(stmts, stmt)
+				}
+				cur.Reset()
+			}
+		default:
+			cur.WriteByte(ch)
+		}
+	}
+	if stmt := strings.TrimSpace(cur.String()); stmt != "" {
+		stmts = append(stmts, stmt)
+	}
+	return stmts
+}
+
+// countParams counts `?` parameter placeholders in a SQL statement,
+// skipping those inside quoted string literals.
+func countParams(sql string) int {
+	count := 0
+	inSingle := false
+	inDouble := false
+	for i := 0; i < len(sql); i++ {
+		switch sql[i] {
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+		case '?':
+			if !inSingle && !inDouble {
+				count++
+			}
+		}
+	}
+	return count
+}
+
 // lastStatementStart returns the byte offset of the first character of
 // the LAST non-empty statement in a multi-statement SQL script. Returns
 // 0 if there's only one statement (no `;` separator). Skips `;` inside

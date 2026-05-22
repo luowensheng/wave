@@ -291,7 +291,38 @@ func processScalarResult(row *sql.Row) (interface{}, error) {
 	return value, nil
 }
 
+// executeSQL handles both single- and multi-statement SQL.
+// Multi-statement scripts (statements separated by `;`) are executed
+// by running every preamble statement with db.Exec (ignoring their
+// results), then handing the final statement to executeSingleSQL so it
+// goes through the normal Select/Insert/Update/Delete dispatch and
+// produces the usual ExecuteResult. Params are distributed across
+// statements by counting `?` placeholders in each statement.
 func (ref *SQLiteStorageRef) executeSQL(sqlStatement string, params ...interface{}) (*ExecuteResult, error) {
+	stmts := splitStatements(sqlStatement)
+	if len(stmts) <= 1 {
+		return ref.executeSingleSQL(sqlStatement, params...)
+	}
+
+	paramOffset := 0
+	for _, stmt := range stmts[:len(stmts)-1] {
+		n := countParams(stmt)
+		end := paramOffset + n
+		if end > len(params) {
+			return nil, fmt.Errorf("not enough params for preamble statement (need %d, have %d)", end, len(params))
+		}
+		if _, err := ref.db.Exec(stmt, params[paramOffset:end]...); err != nil {
+			return nil, fmt.Errorf("preamble SQL failed: %w\nSQL: %s", err, stmt)
+		}
+		paramOffset = end
+	}
+
+	lastStmt := stmts[len(stmts)-1]
+	return ref.executeSingleSQL(lastStmt, params[paramOffset:]...)
+}
+
+// executeSingleSQL executes a single SQL statement and returns an ExecuteResult.
+func (ref *SQLiteStorageRef) executeSingleSQL(sqlStatement string, params ...interface{}) (*ExecuteResult, error) {
 	if ref.db == nil {
 		return nil, fmt.Errorf("database connection is nil")
 	}
@@ -912,7 +943,11 @@ func (ref *SQLiteStorageRef) Execute(sqlStatement string, data *contentloader.Da
 		return v
 	}
 
-	// Render the template
+	// Render the template. Use the DataLoader as context (not the values
+	// map) so that only the registered {{name}} function-call syntax works.
+	// Dot-notation ({{.name}}) would require the DataLoader to have exported
+	// fields matching input names, which it doesn't — this deliberately
+	// prevents un-parameterised value injection into SQL.
 	tmpl, err := template.New("sql").Funcs(funcMap).Parse(sqlStatement)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SQL template: %v", err)

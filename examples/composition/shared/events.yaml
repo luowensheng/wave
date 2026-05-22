@@ -1,0 +1,8 @@
+# shared/events.yaml — the ONE owner of the `feed` SSE broker.
+# Borrowed connections keep their canonical subscribe_path (never
+# moved under a composition prefix).
+kind: connections
+feed:
+  type: sse
+  subscribe_path: /events/feed
+  buffer_size: 128

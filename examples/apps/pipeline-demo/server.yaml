@@ -1,0 +1,74 @@
+# pipeline-demo — demonstrates multi-step storage-access pipeline.
+# Step 1: lookup a user by id.
+# Step 2: fetch their orders using the user row from step 1.
+# output_template stitches both results into one JSON response.
+#
+#   wave serve examples/apps/pipeline-demo/server.yaml --port 8620
+#
+# Seed:
+#   curl -X POST http://127.0.0.1:8620/seed
+# Query:
+#   curl http://127.0.0.1:8620/user-orders/1
+
+default:
+  host: 127.0.0.1
+  port: 8620
+
+storage:
+  shop:
+    type: sqlite
+    path: ./data.db
+    tables:
+      users:
+        columns:
+          - id INTEGER PRIMARY KEY AUTOINCREMENT
+          - name TEXT NOT NULL
+          - email TEXT NOT NULL
+      orders:
+        columns:
+          - id INTEGER PRIMARY KEY AUTOINCREMENT
+          - user_id INTEGER NOT NULL
+          - item TEXT NOT NULL
+          - amount_cents INTEGER NOT NULL
+
+routes:
+  # Seed some test data (idempotent via INSERT OR IGNORE).
+  - path: /seed
+    method: POST
+    type: storage-access
+    storage-access:
+      source: shop
+      execute: |
+        INSERT OR IGNORE INTO users(id, name, email)
+        VALUES (1, 'Alice', 'alice@example.com'),
+               (2, 'Bob',   'bob@example.com');
+        INSERT OR IGNORE INTO orders(id, user_id, item, amount_cents)
+        VALUES (1, 1, 'Widget A', 1999),
+               (2, 1, 'Widget B', 4999),
+               (3, 2, 'Gadget X', 9900)
+      response_content_type: application/json
+      output_template: '{"ok":true}'
+
+  # Pipeline: step 1 fetches user, step 2 fetches their orders.
+  # Each step's inputs: map declares exactly which values the SQL may use
+  # and where to fetch them (dot-path into accumulated map). All values
+  # are fully parameterised — no template expressions in SQL.
+  - path: /user-orders/{user_id}
+    method: GET
+    type: storage-access
+    inputs:
+      - { name: user_id, source: path, type: int, required: true }
+    storage-access:
+      steps:
+        - source: shop
+          inputs:
+            user_id: inputs.user_id   # dot-path: accum["inputs"]["user_id"] (request input)
+          execute: "SELECT id, name, email FROM users WHERE id = {{user_id}} LIMIT 1"
+          as: user
+        - source: shop
+          inputs:
+            uid: user.id       # dot-path: accum["user"]["id"] (single-row map result)
+          execute: "SELECT id, item, amount_cents FROM orders WHERE user_id = {{uid}} ORDER BY id"
+          as: orders
+      response_content_type: application/json
+      output_template: '{"user":{{toJSON .user}},"orders":{{toJSON .orders}}}'

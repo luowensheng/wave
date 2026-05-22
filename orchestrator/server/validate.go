@@ -5,8 +5,6 @@ import (
 
 	"wave/infra/connections"
 	"wave/infra/plugins"
-
-	"gopkg.in/yaml.v3"
 )
 
 // ValidateConfig runs static checks against the loaded YAML without
@@ -50,12 +48,11 @@ func (s *Server) ValidateConfig() error {
 		}
 	}
 
-	// Materialize routes from RawRoutes so we can inspect them. We don't
-	// substitute args/env here — variable rendering is a runtime concern.
-	if len(cfg.Routes) == 0 {
-		if b, err := cfg.RawRoutes.Bytes(); err == nil && len(b) > 0 {
-			_ = yaml.Unmarshal(b, &cfg.Routes) // best effort
-		}
+	// Materialize merged+prefixed routes so we inspect the same set
+	// `wave serve` boots. No $arg/$env substitution here — variable
+	// rendering is a runtime concern (args==nil leaves $x literal).
+	if !cfg.routesMaterialized {
+		_ = materializeRoutes(cfg, nil)
 	}
 
 	for i, r := range cfg.Routes {

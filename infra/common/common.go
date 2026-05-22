@@ -177,19 +177,7 @@ func LoadObjectFromFile(path string, v any) error {
 	ext := filepath.Ext(path)
 	switch ext {
 	case ".yml", ".yaml":
-
 		return yaml.Unmarshal(bytes, v)
-		output := Object{}
-		err = yaml.Unmarshal(bytes, &output)
-
-		if err != nil {
-			return err
-		}
-		bytes, err := JSONMarshal(output)
-		if err != nil {
-			return err
-		}
-		return json.Unmarshal(bytes, v)
 	case ".json":
 		return json.Unmarshal(bytes, v)
 	default:

@@ -31,6 +31,7 @@ import (
 	"wave/infra/rbac"
 	"wave/infra/secrets"
 	"wave/infra/webhooksig"
+	"wave/usecases/match"
 	"wave/usecases/routes"
 	"wave/usecases/schedule"
 	storageaccess "wave/usecases/storage_access"
@@ -106,6 +107,18 @@ type Config struct {
 	Connections map[string]*connections.ConnectionConfig `yaml:"-" json:"connections,omitempty"`
 	RawRoutes   common.RawYAML                           `yaml:"routes,omitempty" json:"-,omitempty"`
 	Routes      []*Route                                 `yaml:"-" json:"Routes"`
+
+	// DefaultRoute is a server-wide catch-all. When set, it is
+	// mounted at `/` (Go's http.ServeMux universal subtree pattern),
+	// so any request whose path no other registered route claims
+	// falls through to this handler. Useful for SPA index fallback,
+	// custom 404 pages, or routing every unmatched path to a
+	// backend.
+	//
+	// The route's `path:` field is ignored if set — DefaultRoute is
+	// always mounted at "/". Methods/inputs/auth/etc. still apply
+	// as on any normal route.
+	DefaultRoute *Route `yaml:"default_route,omitempty" json:"default_route,omitempty"`
 
 	// Raw (pre-extern) resource nodes. Populated by Config.UnmarshalYAML
 	// (yaml.v3 cannot fill unexported fields, so they are captured
@@ -249,6 +262,11 @@ type Server struct {
 	// fanout owns plugin exporter goroutines; set during Start so Stop
 	// can drain in-flight batches at graceful-shutdown time.
 	fanout *observability.Fanout
+
+	// routesById indexes top-level routes by their optional `id`,
+	// for resolution of `route: <id>` references inside `type: match`
+	// cases. Built once at boot in Start.
+	routesById map[string]*Route
 }
 
 func (s *Server) HandleFunc(route *Route) error {
@@ -261,6 +279,28 @@ func (s *Server) HandleFunc(route *Route) error {
 		log.Printf("route creation failed: pattern=%q err=%v", pattern, err)
 		return err
 	}
+
+	wrappedHandler, err := s.wrapRouteMiddleware(route, handler)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("finalizing route registration: %q", pattern)
+	s.mux.HandleFunc(pattern, wrappedHandler)
+
+	return nil
+}
+
+// wrapRouteMiddleware applies the standard per-route middleware chain
+// (allowedMethods → CSRF → RBAC → auth → IP filter → request schema →
+// inputs → forward auth → webhook sig → circuit breaker → cache →
+// rate limit → body size → error case → CORS) to the given inner
+// handler using the given route's settings.
+//
+// Used by Server.HandleFunc for top-level routes and by `type: match`
+// (via match.WrapMiddlewareFn) for per-case sub-handlers.
+func (s *Server) wrapRouteMiddleware(route *Route, handler http.HandlerFunc) (http.HandlerFunc, error) {
+	pattern := strings.TrimSpace(fmt.Sprintf("%s %s", route.Method, route.Path))
 
 	allowedMethods := []string{}
 	route.Methods = append(route.Methods, route.Method)
@@ -340,7 +380,7 @@ func (s *Server) HandleFunc(route *Route) error {
 	if route.RequestSchema != nil {
 		mw, err := schemaMiddleware(route.RequestSchema)
 		if err != nil {
-			return fmt.Errorf("route=%q request_schema: %w", pattern, err)
+			return nil, fmt.Errorf("route=%q request_schema: %w", pattern, err)
 		}
 		if mw != nil {
 			log.Printf("route=%q applying request_schema validation", pattern)
@@ -368,7 +408,7 @@ func (s *Server) HandleFunc(route *Route) error {
 			TrustForwardedFor: route.ForwardAuth.TrustForwardedFor,
 		})
 		if err != nil {
-			return fmt.Errorf("route=%q forward_auth: %w", pattern, err)
+			return nil, fmt.Errorf("route=%q forward_auth: %w", pattern, err)
 		}
 		log.Printf("route=%q forward_auth url=%s", pattern, route.ForwardAuth.URL)
 		mw := v.Middleware
@@ -385,7 +425,7 @@ func (s *Server) HandleFunc(route *Route) error {
 			Tolerance:    time.Duration(route.WebhookSig.ToleranceSec) * time.Second,
 		})
 		if err != nil {
-			return fmt.Errorf("route=%q webhook_sig: %w", pattern, err)
+			return nil, fmt.Errorf("route=%q webhook_sig: %w", pattern, err)
 		}
 		log.Printf("route=%q webhook_sig provider=%s", pattern, route.WebhookSig.Provider)
 		provider := route.WebhookSig.Provider
@@ -477,7 +517,7 @@ func (s *Server) HandleFunc(route *Route) error {
 	// Per-route max-body limit. The unified `limits[case=body_too_large]`
 	// wins over the legacy max_request_size + on_request_too_large pair.
 	if bcfg, err := s.resolveBodyLimit(route); err != nil {
-		return fmt.Errorf("route=%q body limit: %w", pattern, err)
+		return nil, fmt.Errorf("route=%q body limit: %w", pattern, err)
 	} else if bcfg != nil {
 		log.Printf("route=%q body limit max=%dB onFail=%v", pattern, bcfg.MaxBytes, bcfg.OnFail != nil)
 		mw := infrahttp.BodyLimitMiddleware(*bcfg)
@@ -533,10 +573,7 @@ func (s *Server) HandleFunc(route *Route) error {
 		}
 	}
 
-	log.Printf("finalizing route registration: %q", pattern)
-	s.mux.HandleFunc(pattern, wrappedHandler)
-
-	return nil
+	return wrappedHandler, nil
 }
 
 func NewStaticServer(path string, args []string) (*Server, error) {
@@ -913,6 +950,29 @@ func (s *Server) Start(ctx context.Context) error {
 
 	fmt.Println("ROUTES count: ", len(s.Config.Routes))
 
+	// Build the id → *Route registry first. `type: match` cases can
+	// reference any of these by id, and routes with `id:` but no
+	// `path:` are library-only (defined here, never registered as a
+	// mux pattern).
+	s.routesById = map[string]*Route{}
+	for _, r := range s.Config.Routes {
+		if r.Id == "" {
+			if r.Path == "" {
+				return fmt.Errorf("route with no `path` must declare an `id`")
+			}
+			continue
+		}
+		if _, dup := s.routesById[r.Id]; dup {
+			return fmt.Errorf("duplicate route id: %q", r.Id)
+		}
+		s.routesById[r.Id] = r
+	}
+
+	// Wire the match-package injection now that the registry exists.
+	// `match.BuildSubHandlerFn` resolves a case's `route:` field
+	// (string id OR inline map) into a wrapped http.HandlerFunc.
+	match.BuildSubHandlerFn = s.buildMatchSubHandler
+
 	routes := []RouteSummary{}
 
 	for _, route := range s.Config.Routes {
@@ -954,6 +1014,13 @@ func (s *Server) Start(ctx context.Context) error {
 			return err
 		}
 
+		// Library-only routes (id but no path) are validated above
+		// but not registered on the mux — they only exist to be
+		// referenced by `type: match` cases.
+		if route.Path == "" {
+			continue
+		}
+
 		err = s.HandleFunc(route)
 		if err != nil {
 			return err
@@ -965,6 +1032,52 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Health endpoints — always registered, no config required.
 	registerHealthRoutes(s.mux)
+
+	// Server-wide catch-all. Registered AFTER concrete routes so any
+	// specific pattern wins; Go's http.ServeMux treats "/" as the
+	// universal subtree, matching any path no other pattern claims.
+	//
+	// If the user supplied a default_route in config, use it. Otherwise
+	// install a built-in 404 fallback so unmatched paths get a
+	// consistent framework-style error instead of Go's bare default
+	// or (worse) silence.
+	if s.Config.DefaultRoute != nil {
+		dr := s.Config.DefaultRoute
+		dr.Path = "/"
+		if err := dr.render(args); err != nil {
+			return fmt.Errorf("default_route: render: %w", err)
+		}
+		if err := dr.setRouteConfig(); err != nil {
+			return fmt.Errorf("default_route: %w", err)
+		}
+		if err := dr.resolveLimits(s.Config.Limits); err != nil {
+			return fmt.Errorf("default_route: %w", err)
+		}
+		if err := dr.Validate(); err != nil {
+			return fmt.Errorf("default_route: %w", err)
+		}
+		if err := s.HandleFunc(dr); err != nil {
+			return fmt.Errorf("default_route: %w", err)
+		}
+	} else {
+		// Skip the built-in fallback if the user already claimed "/"
+		// as a normal route — would otherwise panic on duplicate
+		// pattern registration.
+		hasRoot := false
+		for _, r := range s.Config.Routes {
+			if r.Path == "/" && r.Method == "" && len(r.Methods) == 0 {
+				hasRoot = true
+				break
+			}
+		}
+		if !hasRoot {
+			s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, `{"error":"page not found","path":%q}`+"\n", r.URL.Path)
+			})
+		}
+	}
 
 	// Stream-publish discovery: emit any route_id → endpoint metadata so
 	// frontends can discover SSE entrypoints without hardcoding paths.
