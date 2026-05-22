@@ -1,0 +1,51 @@
+# golangci-lint config. Start permissive — tighten as the codebase
+# stabilizes. CI runs `golangci-lint run` with these rules.
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck       # catches ignored errors
+    - gosimple       # simplifications
+    - govet          # standard go vet
+    - ineffassign    # ineffective assignments
+    - staticcheck    # SA series
+    - typecheck      # compile errors as lint
+    - unused         # unused vars/funcs
+    - gofmt          # formatting
+    - misspell       # common typos in comments
+    - bodyclose      # http response.Body.Close() leaks
+    - prealloc       # preallocate slices where obvious
+    - nilerr         # `return nil` after non-nil err
+
+issues:
+  exclude-rules:
+    # Tests can be a bit looser.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - bodyclose
+    # Examples directory is hand-curated YAML — no Go to lint.
+    - path: examples/
+
+  exclude-dirs:
+    - examples
+    - dist
+    - .ignore
+
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (net/http.ResponseWriter).Write   # noisy, low value
+      - io.Copy
+      - (*bytes.Buffer).WriteString
+      - (*strings.Builder).WriteString
+      - fmt.Fprint
+      - fmt.Fprintln
+      - fmt.Fprintf

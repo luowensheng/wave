@@ -1,0 +1,58 @@
+name: Feature request
+description: Propose a new capability or significant change
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We prioritize features that have a clear use case. Lead with
+        the use case; we'll figure out the implementation together.
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What are you trying to accomplish? What's blocking you today?
+      placeholder: |
+        I'm building a multi-tenant SaaS and want to route requests
+        to different storage backends based on the Host header.
+        Today I have to write a custom Go plugin to do this; I'd
+        like a declarative way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Optional. Your guess at how this could work.
+      placeholder: |
+        A `type: match` case targeting `host:` that points at one of
+        N pre-declared storage backends...
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds have you tried? Why are they unsatisfying?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Small (new field, small helper, doc)
+        - Medium (new route type, new middleware)
+        - Large (new subsystem, breaking change)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues/discussions and didn't find this proposal
+          required: true
+        - label: I'd be willing to help implement it (in any role — design, code, tests, docs)
+          required: false
