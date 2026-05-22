@@ -53,6 +53,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - The strict-scope DataLoader path ensures every SQL value goes through
   `{{name}} → ?` parameterised binding. Documented in CLAUDE.md.
+- Added unit-test coverage for `dynamic_forward`'s SSRF guardrails:
+  RFC1918 ranges, loopback (127.0.0.1, ::1), link-local
+  (169.254.169.254 — AWS metadata service), multicast (224.0.0.0/4),
+  and the unspecified address (0.0.0.0). Allowed-domains check is
+  case-insensitive and whitespace-trimmed.
+- Added path-traversal regression tests for `file_server` covering
+  `../leak.txt`, `sub/../../leak.txt`, and `./../leak.txt` patterns.
+
+### Tests
+- Unit tests added for 8 previously untested usecases:
+  `auth_login`, `auth_signup`, `auth_logout`, `api`, `redirect`,
+  `run_process`, `dynamic_forward`, `file_server`. Test coverage
+  on critical route handlers now matches the bar set by
+  `usecases/match/config_test.go`.
 
 ---
 
