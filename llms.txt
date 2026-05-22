@@ -1,0 +1,45 @@
+# Wave
+
+> A declarative HTTP server framework — define your backend in YAML, ship a single binary. Wave has 28 route types covering CRUD, auth, webhooks, scheduling, SSE, file uploads, multi-tenant routing, and more.
+
+Wave is pre-1.0 and licensed under Apache-2.0. Source: https://github.com/luowensheng/wave
+
+## Core concepts
+
+- [README](https://github.com/luowensheng/wave/blob/main/README.md): Project overview and 60-second pitch.
+- [CLAUDE.md](https://github.com/luowensheng/wave/blob/main/CLAUDE.md): Full developer guide. Read this for architecture, conventions, recipes, security rules.
+- [CHANGELOG.md](https://github.com/luowensheng/wave/blob/main/CHANGELOG.md): Recent changes.
+
+## Guides
+
+- [What is Wave?](https://luowensheng.github.io/wave/guide/): When to use it, when not to, how it compares.
+- [Quickstart](https://luowensheng.github.io/wave/guide/quickstart): 5-minute working example.
+- [Tutorial](https://luowensheng.github.io/wave/guide/tutorial): Build a todo API end-to-end.
+
+## Reference
+
+- [YAML schema](https://github.com/luowensheng/wave/blob/main/docs/server.schema.json): JSON Schema for `server.yaml`. Editors should reference this for auto-complete.
+- [Route types](https://luowensheng.github.io/wave/reference/route-types): All 28 route types and their YAML shape.
+- [SQL template helpers](https://luowensheng.github.io/wave/reference/sql-helpers): `{{name}}`, `{{getCurrentTime}}`, `{{wrap}}`, etc.
+
+## Examples (runnable)
+
+- [examples/apps/](https://github.com/luowensheng/wave/tree/main/examples/apps): 57 self-contained demo apps. Each has its own `server.yaml`.
+- [match-route-demo](https://github.com/luowensheng/wave/tree/main/examples/apps/match-route-demo): Declarative request router (host/header/cookie/query/method dispatch).
+- [pipeline-demo](https://github.com/luowensheng/wave/tree/main/examples/apps/pipeline-demo): Multi-step storage-access with dot-path inputs.
+- [background-task-demo](https://github.com/luowensheng/wave/tree/main/examples/apps/background-task-demo): `type: task` with SSE publish.
+- [scheduled-jobs-demo](https://github.com/luowensheng/wave/tree/main/examples/apps/scheduled-jobs-demo): Cron with `action:` + `then:` sinks.
+- [outbox-reliability-demo](https://github.com/luowensheng/wave/tree/main/examples/apps/outbox-reliability-demo): Durable outbox CLI.
+- [magic-link-login](https://github.com/luowensheng/wave/tree/main/examples/apps/magic-link-login): Passwordless email auth.
+
+## Critical rules for LLMs writing Wave configs
+
+1. **SQL parameterisation**: Always use `{{name}}` in `execute:` strings. NEVER use `{{.name}}` (dot-notation), `{{bind .x.y}}`, `{{toJSON .data}}` inside SQL, or `fmt.Sprintf`-style concatenation. `{{name}}` becomes a `?` parameter binding.
+2. **Declared inputs are required**: Every `{{name}}` referenced in SQL must appear in the route's `inputs:` list (or in a pipeline step's `inputs:` map). Otherwise the request 500s.
+3. **Method-bound routes break CORS preflight**: Use `methods: [POST]` (plural) instead of `method: post` (singular) so OPTIONS preflights can reach the CORS wrapper.
+4. **Single-row vs multi-row results**: Add `LIMIT 1` to lookup queries — Wave detects this and exposes `.Data.column`. Without `LIMIT 1`, `.Data` is a slice and you need `{{toJSON .Data}}`.
+5. **No `init()` functions in usecase packages, no `log.Fatal` in usecases** — return errors, let the orchestrator handle them.
+
+## Optional
+
+- [docs/llms-full.txt](https://github.com/luowensheng/wave/blob/main/docs-site/llms-full.txt): Concatenated full docs, optimized for LLM context windows.

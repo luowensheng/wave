@@ -153,10 +153,12 @@ runnable demo applications**.
 
 ## Documentation
 
+- **[luowensheng.github.io/wave](https://luowensheng.github.io/wave/)** — docs site (Quickstart, Cookbook, Reference, AI agents)
 - **[CLAUDE.md](CLAUDE.md)** — full developer guide (architecture, conventions, recipes)
 - **[docs/](docs/)** — reference docs: storage, auth, plugins, composition, bundler
 - **[examples/apps/](examples/apps/)** — 57 self-contained demos
 - **[examples/composition/](examples/composition/)** — modular `server.yaml` with `include:` / `extern:`
+- **[llms.txt](llms.txt)** — LLM-friendly index for AI agents writing Wave configs
 
 ## Community
 

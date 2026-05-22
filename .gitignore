@@ -1,5 +1,16 @@
 .ignore
-.claude/
+# Claude Code state — gitignored except for committed agent skills
+# under .claude/skills/ that ship with the project.
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+
+# VitePress build output and node_modules (kept out of git but the
+# docs-site sources are committed).
+docs-site/.vitepress/cache
+docs-site/.vitepress/dist
+docs-site/node_modules
+node_modules
 
 # Generated binaries / databases / scratch files from running examples + builds
 examples/apps/*/data.db
