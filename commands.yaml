@@ -1,4 +1,6 @@
 name: Commands
+global:
+  OUTPUT_DIR: "{{CWD}}/.ignore"
 
 commands:
 
@@ -25,25 +27,25 @@ commands:
 
   build_windows:
     script: |
-      {{Run}} build --os windows --arch amd64 --output "{{CWD}}/builds/windows/wave"
+      {{Run}} build --os windows --arch amd64 --output "{{.OUTPUT_DIR}}/builds/windows/wave"
 
   build_mac:
     script: |
-      {{Run}} build --os darwin --arch arm64 --output "{{CWD}}/builds/mac/wave"
-      bman remove wave
-      bman add "{{CWD}}/builds/mac/wave"
+      {{Run}} build --os darwin --arch arm64 --output "{{.OUTPUT_DIR}}/builds/mac/wave"
+      # bman remove wave
+      bman add "{{.OUTPUT_DIR}}/builds/mac/wave"
 
   build_linux:
     script: |
-      {{Run}} build --os linux --arch amd64 --output "{{CWD}}/builds/linux/wave"
+      {{Run}} build --os linux --arch amd64 --output "{{.OUTPUT_DIR}}/builds/linux/wave"
 
   build_linux-arm:
     script: |
-      {{Run}} build --os linux --arch arm64 --output "{{CWD}}/builds/linux-arm/wave"
+      {{Run}} build --os linux --arch arm64 --output "{{.OUTPUT_DIR}}/builds/linux-arm/wave"
 
   build_all:
     script: |
-      {{Run}} build_windows
+     # {{Run}} build_windows
       {{Run}} build_mac
       {{Run}} build_linux
       {{Run}} build_linux-arm

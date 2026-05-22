@@ -33,7 +33,7 @@ routes:
       source: links
       execute: "INSERT INTO links(slug, url) VALUES ({{slug}}, {{url}})"
       response_content_type: application/json
-      output_template: '{"short": "/{{slug}}"}'
+      output_template: '{"short": "/r/{{.slug}}"}'
 
   # Resolve and redirect.
   - path: /r/{slug}

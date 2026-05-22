@@ -30,7 +30,7 @@ plugins:
     timeout: 5s
 
 schedule:
-  - name: refresh_upstream
+  refresh_upstream:
     plugin: upstream
     trigger_key: refresh
     every: "5m"

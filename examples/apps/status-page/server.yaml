@@ -42,6 +42,23 @@ connections:
     buffer_size: 32
     subscribe_cors_origins: ["*"]
 
+schedule:
+  # Broadcast a full status snapshot every minute so open dashboards
+  # auto-refresh without polling. Clients listen at /events/status.
+  status_broadcast:
+    every: 1m
+    action:
+      type: storage
+      source: st
+      execute: |
+        SELECT json_group_array(
+          json_object('name', name, 'status', status, 'updated_at', updated_at)
+        ) AS services FROM services
+    then:
+      - type: publish
+        connection: status
+        event_type: snapshot
+
 routes:
   - path: /app
     method: GET

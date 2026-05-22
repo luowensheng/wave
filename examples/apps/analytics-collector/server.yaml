@@ -27,6 +27,16 @@ storage:
           - day TEXT NOT NULL DEFAULT (date('now'))
           - at TEXT NOT NULL DEFAULT (datetime('now'))
 
+schedule:
+  # Hard-delete events older than 90 days every night at 03:00.
+  # Keeps the table lean without any application code.
+  nightly_purge:
+    at: "03:00"
+    action:
+      type: storage
+      source: ana
+      execute: "DELETE FROM events WHERE day < date('now', '-90 days')"
+
 routes:
   # Public collection endpoint. Declared inputs enforce the schema
   # so callers can't smuggle extra fields.

@@ -20,6 +20,19 @@ storage:
           - created_at TEXT NOT NULL DEFAULT (datetime('now'))
           - deleted_at TEXT
 
+schedule:
+  # Permanently erase rows that have been in the trash for > 30 days.
+  # Runs nightly at 02:00 — no code, no cron daemon needed.
+  nightly_purge:
+    at: "02:00"
+    action:
+      type: storage
+      source: items
+      execute: |
+        DELETE FROM items
+        WHERE deleted_at IS NOT NULL
+          AND deleted_at < datetime('now', '-30 days')
+
 routes:
   - path: /items
     method: GET

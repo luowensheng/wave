@@ -32,6 +32,17 @@ storage:
           - label TEXT NOT NULL
           - ts    TEXT NOT NULL DEFAULT (datetime('now'))
 
+schedule:
+  # Insert a synthetic hit every 30s so there is always a stream of
+  # metric samples flowing through the OTLP exporter even with no
+  # real traffic. Useful for verifying the exporter pipeline end-to-end.
+  synthetic_load:
+    every: 30s
+    action:
+      type: storage
+      source: cache
+      execute: "INSERT INTO hits(label) VALUES ('synthetic')"
+
 routes:
   # Generates a small bit of load: every hit becomes a metric sample +
   # a span emitted through the request path's observability fanout.

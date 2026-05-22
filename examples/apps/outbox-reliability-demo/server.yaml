@@ -17,11 +17,6 @@ default:
   host: 127.0.0.1
   port: 8610
 
-env:
-  DOWNSTREAM_URL:
-    description: "Where outbox-bound events go (use httpbin.org/post in dev)."
-    default: "https://httpbin.org/post"
-
 outbox_db: ./outbox.db
 
 storage:
@@ -43,6 +38,9 @@ connections:
     subscribe_path: /events/transfers
 
 routes:
+  # Intake: validate inputs, publish SSE event, and enqueue the outbox
+  # delivery to /internal/ledger. The outbox worker writes the row
+  # asynchronously so this handler stays fast and the write is durable.
   - path: /transfer
     method: POST
     type: stream-publish
@@ -55,9 +53,24 @@ routes:
       route_id: transfer_made
       event_type: transfer
       static_meta: { source: ledger }
-      forward_url: "${ENV:DOWNSTREAM_URL}"
+      forward_url: "http://127.0.0.1:8610/internal/ledger"
 
-  # Read-side: list transfers the orchestrator already persisted.
+  # Internal: the outbox worker delivers here and we INSERT into the DB.
+  # Proof of the outbox pattern: make this return 500 temporarily and
+  # watch the outbox retry; fix it and the rows appear automatically.
+  - path: /internal/ledger
+    method: POST
+    type: storage-access
+    storage-access:
+      source: ledger
+      expected_content_type: application/json
+      execute: >
+        INSERT INTO transfers (from_account, to_account, amount_cents)
+        VALUES ({{from_account}}, {{to_account}}, {{amount_cents}})
+      response_content_type: application/json
+      output_template: '{"ok":true}'
+
+  # Read-side: list transfers written by the outbox worker.
   - path: /transfers
     method: GET
     type: storage-access

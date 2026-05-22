@@ -27,7 +27,7 @@ outbox_db: ./outbox.db
 
 # In-process scheduled jobs — invoke plugins on a cadence.
 schedule:
-  - name: nightly_audit
+  nightly_audit:
     plugin: jq
     trigger_key: digest
     at: "02:30"

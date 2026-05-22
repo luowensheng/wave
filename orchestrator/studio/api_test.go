@@ -50,6 +50,7 @@ default:
 routes:
   - path: /echo
     method: POST
+    type: forward
     forward:
       url: irrelevant
     description: echoes back
