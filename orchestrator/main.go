@@ -20,13 +20,21 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"gopkg.in/yaml.v3"
+)
+
+// version is overridden at build time via:
+//   go build -ldflags "-X main.version=v0.1.0 -X main.commit=$(git rev-parse --short HEAD)" ./orchestrator
+// Defaults to "dev" so local builds are obvious in logs and bug reports.
+var (
+	version = "dev"
+	commit  = "none"
 )
 
 func main() {
-
-	// Ensure the command is "serve" and path is provided
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: autoserver serve [path] --host [host] --port [port] [--key value]...")
+		printHelp()
+		os.Exit(2)
 	}
 	switch os.Args[1] {
 	case "serve", "run":
@@ -35,6 +43,8 @@ func main() {
 		servelive()
 	case "validate":
 		validate()
+	case "fmt":
+		fmtCmd()
 	case "init":
 		initCmd()
 	case "routes":
@@ -47,13 +57,51 @@ func main() {
 		outboxCmd()
 	case "studio":
 		studioCmd()
-	case "version":
-		fmt.Println("1.0.1")
-	// case "help-routes":
-	// 	helpRoutes()
+	case "completion":
+		completionCmd()
+	case "version", "--version", "-v":
+		fmt.Printf("wave %s (commit: %s)\n", version, commit)
+	case "help", "--help", "-h":
+		printHelp()
 	default:
-		log.Fatalf("Invalid command: '%s'", os.Args[1])
+		fmt.Fprintf(os.Stderr, "unknown command: %q\n\n", os.Args[1])
+		printHelp()
+		os.Exit(2)
 	}
+}
+
+// printHelp emits a top-level usage banner. Kept brief — long usage
+// per-subcommand prints from the individual command functions.
+func printHelp() {
+	fmt.Fprintln(os.Stderr, `wave — declarative HTTP server framework
+
+USAGE:
+  wave <command> [arguments...]
+
+COMMANDS:
+  serve <file.yaml>                 Run a server
+  serve-live <file.yaml>            Run a server, hot-reload on file change
+  validate <file.yaml>              Boot-time config check (no server)
+  fmt <file.yaml>                   Canonicalize YAML formatting
+  routes <file.yaml>                Print the route table (table | json)
+  doctor <file.yaml>                Pre-flight diagnostics (live connectivity)
+  init <template> <dir>             Scaffold a starter project
+  migrate up|down                   Apply / roll back SQLite migrations
+  outbox list|dlq|replay            Inspect and operate on the outbox
+  studio                            Multi-project web UI
+  completion bash|zsh|fish          Print shell completion script
+  version                           Print build version
+  help                              Show this message
+
+EXAMPLES:
+  wave serve server.yaml --port 8080
+  wave validate server.yaml
+  wave init api ./my-project
+  wave doctor server.yaml --json
+
+DOCS:
+  https://luowensheng.github.io/wave/
+  https://github.com/luowensheng/wave`)
 }
 
 // outboxCmd inspects and operates on the durable outbound webhook
@@ -129,10 +177,19 @@ func outboxCmd() {
 
 // doctorCmd runs validate + live connectivity checks (HTTP plugins,
 // OIDC discovery, SQLite ping, referenced files) against a config and
-// prints a human-readable report. Exits non-zero when any check fails.
+// prints a report. Exits non-zero when any check fails.
+//
+//	wave doctor <file.yaml>            (human-readable table)
+//	wave doctor <file.yaml> --json     (machine-readable, suitable for CI)
 func doctorCmd() {
 	if len(os.Args) < 3 {
-		log.Fatal("Usage: wave doctor <path/to/server.yaml>")
+		log.Fatal("Usage: wave doctor <path/to/server.yaml> [--json]")
+	}
+	jsonOut := false
+	for _, a := range os.Args[3:] {
+		if a == "--json" {
+			jsonOut = true
+		}
 	}
 	path, err := filepath.Abs(os.Args[2])
 	if err != nil {
@@ -145,6 +202,20 @@ func doctorCmd() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	results, failures := srv.RunDoctor(ctx)
+
+	if jsonOut {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(map[string]any{
+			"checks":   results,
+			"failures": failures,
+			"ok":       failures == 0,
+		})
+		if failures > 0 {
+			os.Exit(1)
+		}
+		return
+	}
 
 	icon := func(status string) string {
 		switch status {
@@ -474,6 +545,214 @@ func loadServer() (*servers.Server, error) {
 	return server, nil
 
 }
+
+// fmtCmd canonicalizes the indentation and structure of one or more
+// server.yaml files via a yaml.v3 round-trip. Useful as a pre-commit
+// hook to cut PR review noise from indentation churn. By default
+// rewrites the file in place; --check exits non-zero if formatting
+// would change anything (CI mode).
+//
+//	wave fmt server.yaml
+//	wave fmt server.yaml --check     (exits 1 if not formatted)
+//	wave fmt server.yaml --stdout    (print, don't rewrite)
+func fmtCmd() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave fmt <file.yaml> [--check | --stdout]")
+	}
+	check := false
+	stdout := false
+	files := []string{}
+	for _, a := range os.Args[2:] {
+		switch a {
+		case "--check":
+			check = true
+		case "--stdout":
+			stdout = true
+		default:
+			files = append(files, a)
+		}
+	}
+	if len(files) == 0 {
+		log.Fatal("fmt: at least one file is required")
+	}
+
+	changed := 0
+	for _, path := range files {
+		formatted, original, err := formatYAMLFile(path)
+		if err != nil {
+			log.Fatalf("fmt %s: %v", path, err)
+		}
+		if string(formatted) == string(original) {
+			if !check && !stdout {
+				fmt.Printf("unchanged %s\n", path)
+			}
+			continue
+		}
+		changed++
+		switch {
+		case check:
+			fmt.Fprintf(os.Stderr, "%s: would be reformatted\n", path)
+		case stdout:
+			_, _ = os.Stdout.Write(formatted)
+		default:
+			if err := os.WriteFile(path, formatted, 0o644); err != nil {
+				log.Fatalf("fmt %s: write: %v", path, err)
+			}
+			fmt.Printf("reformatted %s\n", path)
+		}
+	}
+
+	if check && changed > 0 {
+		os.Exit(1)
+	}
+}
+
+// formatYAMLFile reads `path`, round-trips through yaml.v3 (which
+// canonicalizes indentation and quoting), and returns (new, old, err).
+// Comments and key order are preserved by yaml.v3's Node API.
+func formatYAMLFile(path string) (formatted, original []byte, err error) {
+	original, err = os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	var node yaml.Node
+	if err := yaml.Unmarshal(original, &node); err != nil {
+		return nil, nil, fmt.Errorf("yaml parse: %w", err)
+	}
+	var buf strings.Builder
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(&node); err != nil {
+		return nil, nil, fmt.Errorf("yaml encode: %w", err)
+	}
+	if err := enc.Close(); err != nil {
+		return nil, nil, fmt.Errorf("yaml close: %w", err)
+	}
+	return []byte(buf.String()), original, nil
+}
+
+// completionCmd prints a shell completion script for bash, zsh, or
+// fish. Top-level subcommand list is hard-coded; per-command flags
+// are not completed (kept simple — Wave's CLI is small).
+//
+//	wave completion bash >> ~/.bash_completion
+//	wave completion zsh  > "${fpath[1]}/_wave"
+//	wave completion fish > ~/.config/fish/completions/wave.fish
+func completionCmd() {
+	if len(os.Args) < 3 {
+		log.Fatal("Usage: wave completion bash|zsh|fish")
+	}
+	switch os.Args[2] {
+	case "bash":
+		fmt.Print(bashCompletion)
+	case "zsh":
+		fmt.Print(zshCompletion)
+	case "fish":
+		fmt.Print(fishCompletion)
+	default:
+		log.Fatalf("completion: unknown shell %q (want bash|zsh|fish)", os.Args[2])
+	}
+}
+
+const bashCompletion = `# wave shell completion (bash) — install with:
+#   wave completion bash >> ~/.bash_completion
+_wave_complete() {
+  local cur prev opts
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  if [ "$COMP_CWORD" -eq 1 ]; then
+    opts="serve serve-live validate fmt routes doctor init migrate outbox studio completion version help"
+    COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+    return 0
+  fi
+
+  case "${COMP_WORDS[1]}" in
+    serve|serve-live|validate|fmt|routes|doctor)
+      COMPREPLY=( $(compgen -f -X '!*.@(yaml|yml)' -- "${cur}") )
+      ;;
+    migrate)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "up down" -- "${cur}") )
+      ;;
+    outbox)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "list dlq replay" -- "${cur}") )
+      ;;
+    init)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "api spa internal-tool plugin-starter streaming oidc-api graphql list" -- "${cur}") )
+      ;;
+    completion)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "bash zsh fish" -- "${cur}") )
+      ;;
+  esac
+}
+complete -F _wave_complete wave
+`
+
+const zshCompletion = `#compdef wave
+# wave shell completion (zsh) — install with:
+#   wave completion zsh > "${fpath[1]}/_wave"
+_wave() {
+  local -a subcmds
+  subcmds=(
+    'serve:Run a server'
+    'serve-live:Run with hot-reload'
+    'validate:Boot-time config check'
+    'fmt:Canonicalize YAML'
+    'routes:Print the route table'
+    'doctor:Pre-flight diagnostics'
+    'init:Scaffold a starter project'
+    'migrate:Apply / roll back migrations'
+    'outbox:Inspect the outbox'
+    'studio:Multi-project web UI'
+    'completion:Print shell completion'
+    'version:Print build version'
+    'help:Show usage'
+  )
+  if (( CURRENT == 2 )); then
+    _describe 'command' subcmds
+    return
+  fi
+  case "$words[2]" in
+    serve|serve-live|validate|fmt|routes|doctor) _files -g '*.yaml *.yml' ;;
+    migrate)    (( CURRENT == 3 )) && _values 'direction' up down ;;
+    outbox)     (( CURRENT == 3 )) && _values 'sub' list dlq replay ;;
+    init)       (( CURRENT == 3 )) && _values 'template' api spa internal-tool plugin-starter streaming oidc-api graphql list ;;
+    completion) (( CURRENT == 3 )) && _values 'shell' bash zsh fish ;;
+  esac
+}
+_wave "$@"
+`
+
+const fishCompletion = `# wave shell completion (fish) — install with:
+#   wave completion fish > ~/.config/fish/completions/wave.fish
+
+complete -c wave -f
+
+# Top-level subcommands
+complete -c wave -n __fish_use_subcommand -a serve       -d 'Run a server'
+complete -c wave -n __fish_use_subcommand -a serve-live  -d 'Run with hot-reload'
+complete -c wave -n __fish_use_subcommand -a validate    -d 'Boot-time config check'
+complete -c wave -n __fish_use_subcommand -a fmt         -d 'Canonicalize YAML'
+complete -c wave -n __fish_use_subcommand -a routes      -d 'Print the route table'
+complete -c wave -n __fish_use_subcommand -a doctor      -d 'Pre-flight diagnostics'
+complete -c wave -n __fish_use_subcommand -a init        -d 'Scaffold a starter project'
+complete -c wave -n __fish_use_subcommand -a migrate     -d 'Apply / roll back migrations'
+complete -c wave -n __fish_use_subcommand -a outbox      -d 'Inspect the outbox'
+complete -c wave -n __fish_use_subcommand -a studio      -d 'Multi-project web UI'
+complete -c wave -n __fish_use_subcommand -a completion  -d 'Print shell completion'
+complete -c wave -n __fish_use_subcommand -a version     -d 'Print build version'
+complete -c wave -n __fish_use_subcommand -a help        -d 'Show usage'
+
+# yaml file completion for the path-taking commands
+complete -c wave -n '__fish_seen_subcommand_from serve serve-live validate fmt routes doctor' -a '(__fish_complete_path)' -k
+
+# subsubcommands
+complete -c wave -n '__fish_seen_subcommand_from migrate'    -a 'up down'
+complete -c wave -n '__fish_seen_subcommand_from outbox'     -a 'list dlq replay'
+complete -c wave -n '__fish_seen_subcommand_from init'       -a 'api spa internal-tool plugin-starter streaming oidc-api graphql list'
+complete -c wave -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
+`
 
 // studioCmd boots the multi-project Studio web UI.
 //

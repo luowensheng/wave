@@ -98,7 +98,12 @@ jobs:
           mkdir -p dist
           ext=""
           if [ "${{ matrix.target.goos }}" = "windows" ]; then ext=".exe"; fi
-          go build -trimpath -tags=nosqlite -o dist/wave-${{ matrix.target.goos }}-${{ matrix.target.goarch }}${ext} ./orchestrator
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          go build -trimpath -tags=nosqlite \
+            -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
+            -o dist/wave-${{ matrix.target.goos }}-${{ matrix.target.goarch }}${ext} \
+            ./orchestrator
       - uses: actions/upload-artifact@v4
         with:
           name: wave-${{ matrix.target.goos }}-${{ matrix.target.goarch }}

@@ -68,6 +68,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on critical route handlers now matches the bar set by
   `usecases/match/config_test.go`.
 
+### CLI
+- `wave fmt <file.yaml> [--check | --stdout]` — canonicalize YAML
+  formatting via yaml.v3 round-trip. `--check` exits non-zero if
+  the file would be reformatted (CI / pre-commit hook).
+- `wave doctor --json` — machine-readable doctor output for CI.
+- `wave completion bash|zsh|fish` — shell completion scripts with
+  per-subcommand value completion.
+- `wave help` / `wave --help` / `wave -h` — top-level usage banner.
+- `wave version` now reports the linker-injected build version and
+  short commit hash. Defaults to `dev/none` on local builds; CI
+  injects `${GITHUB_REF_NAME}` and the short SHA via ldflags.
+
+### Documentation
+- VitePress docs site under `docs-site/`, auto-deployed to
+  https://luowensheng.github.io/wave/ on push to main.
+- Cookbook recipes for JSON API, multi-tenant routing, device
+  detection, and CORS preflight.
+- Comparison page (vs Gin, Echo, Caddy, Express, Fastify, FastAPI,
+  Hasura, Supabase, PocketBase, K8s Ingress) — honest, no
+  marketing voice.
+- `llms.txt` at repo root for LLM-friendly discovery.
+- `.claude/skills/wave.md` — Claude Code skill primed with the
+  four non-negotiable rules and the add-a-route-type checklist.
+
 ---
 
 ## [0.1.0] — Unreleased
