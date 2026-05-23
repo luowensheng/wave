@@ -2,21 +2,37 @@
 
 ## Pre-built binaries
 
-::: warning Pending v0.1.0 release
-Pre-built binaries land on GitHub Releases at v0.1.0. Until then,
-use the `go install` path below.
-:::
-
 ```sh
-# macOS / Linux — auto-detects arch and OS
-curl -sSfL https://wave.dev/install.sh | sh
+# macOS / Linux — auto-detects arch and OS, installs to /usr/local/bin
+curl -sSfL https://luowensheng.github.io/wave/install.sh | sh
 
-# Or download a specific tag
-curl -sSfL https://github.com/luowensheng/wave/releases/download/v0.1.0/wave-darwin-arm64.tar.gz \
+# Pin a specific version
+curl -sSfL https://luowensheng.github.io/wave/install.sh | sh -s -- v0.1.0
+
+# Or, via env var
+WAVE_VERSION=v0.1.0 curl -sSfL https://luowensheng.github.io/wave/install.sh | sh
+
+# Or, install to a non-default dir
+INSTALL_DIR=$HOME/.local/bin \
+  curl -sSfL https://luowensheng.github.io/wave/install.sh | sh
+
+# Or, download manually
+curl -sSfL https://github.com/luowensheng/wave/releases/download/v0.1.0/wave_0.1.0_macOS_arm64.tar.gz \
   | tar -xz -C /usr/local/bin
 ```
 
+::: info nosqlite caveat
+Released binaries are built with `-tags=nosqlite` for cross-platform
+simplicity. If you use the built-in SQLite storage backend, install
+via Docker (which IS sqlite-capable) or `go install` from source.
+:::
+
 ## Homebrew
+
+::: warning Coming soon
+The Homebrew tap (`luowensheng/homebrew-wave`) lands shortly after
+v0.1.0. Until then, use the `curl ... | sh` installer or `go install`.
+:::
 
 ```sh
 brew install luowensheng/tap/wave

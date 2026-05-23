@@ -13,9 +13,9 @@ ln -s "$(go env GOBIN || echo $HOME/go/bin)/orchestrator" /usr/local/bin/wave
 ```
 
 ```sh [Pre-built]
-# Once binaries are published to GitHub Releases:
-curl -sSfL https://wave.dev/install.sh | sh
-# (until then, use the `go install` path above)
+curl -sSfL https://luowensheng.github.io/wave/install.sh | sh
+# Or pin a specific version:
+# curl -sSfL https://luowensheng.github.io/wave/install.sh | sh -s -- v0.1.0
 ```
 
 ```sh [Docker]

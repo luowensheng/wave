@@ -98,19 +98,23 @@ and 404 handling. No Go code required.
 
 ```bash
 # Recommended — pre-built binaries (macOS / Linux / Windows)
-curl -sSfL https://wave.dev/install.sh | sh           # <-- TODO: host install.sh
+curl -sSfL https://luowensheng.github.io/wave/install.sh | sh
 
-# Or via Homebrew
-brew install luowensheng/tap/wave                      # <-- TODO: publish formula
+# Pin a specific version
+curl -sSfL https://luowensheng.github.io/wave/install.sh | sh -s -- v0.1.0
 
-# Or via Go
+# Or via Go (latest main, includes built-in SQLite)
 go install github.com/luowensheng/wave/orchestrator@latest
 
-# Or via Docker
+# Or via Docker (sqlite-capable)
 docker run --rm -p 8080:8080 \
   -v $(pwd)/server.yaml:/server.yaml \
   ghcr.io/luowensheng/wave:latest serve /server.yaml --port 8080
 ```
+
+> Released binaries are built `nosqlite` for cross-platform simplicity.
+> Use the Docker image or `go install` for built-in SQLite. A Homebrew
+> formula lands once the tap repo is published.
 
 ## Quickstart (30 seconds)
 
