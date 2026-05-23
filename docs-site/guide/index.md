@@ -6,6 +6,15 @@ authentication, and scheduling; Wave compiles that into a working
 production server with middleware, observability, and a single
 binary you can `scp` to a box.
 
+::: tip TL;DR
+- **28 route types** for the boring 80% — CRUD, auth, webhooks, scheduling, SSE, files, multi-tenant routing
+- **5-10× fewer tokens** than Express/FastAPI when AI-assisted ([why](/ai/token-efficiency))
+- **Safe by default** — SQL injection impossible by construction, webhook signatures, CSRF, rate limits
+- **Single binary deploy** — `wave serve config.yaml`, ~25 MB Docker image
+- **Built-in testing** — `wave test server.test.yaml` runs YAML cases in-process
+- **Fits your existing stack** — BFF for React, gateway for Node, sidekick for Python
+:::
+
 ## When to use Wave
 
 Use Wave when:
