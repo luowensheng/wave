@@ -1,0 +1,71 @@
+# wavetest suite for kv-store.
+#
+#   wave test examples/apps/kv-store/server.test.yaml
+
+import: server.yaml
+
+tests:
+  - name: GET unknown key returns 404
+    request: { method: GET, path: /kv/nope }
+    expect:
+      status: 404
+
+  - name: PUT stores a value
+    request:
+      method: PUT
+      path: /kv/greeting
+      headers:
+        Content-Type: text/plain
+      body: "hello world"
+    expect:
+      status: 200
+      json: { ok: true }
+
+  - name: GET returns the stored value
+    request:
+      method: GET
+      path: /kv/greeting
+    expect:
+      status: 200
+      headers:
+        Content-Type: application/octet-stream
+      body: hello world
+
+  - name: PUT overwrites on conflict
+    request:
+      method: PUT
+      path: /kv/greeting
+      headers:
+        Content-Type: text/plain
+      body: "hello again"
+    expect:
+      status: 200
+
+  - name: GET returns the new value
+    request: { method: GET, path: /kv/greeting }
+    expect:
+      status: 200
+      body: hello again
+
+  - name: DELETE removes the key
+    request: { method: DELETE, path: /kv/greeting }
+    expect:
+      status: 200
+      json: { deleted: 1 }
+
+  - name: GET deleted key returns 404
+    request: { method: GET, path: /kv/greeting }
+    expect:
+      status: 404
+
+  - name: DELETE missing key returns deleted=0
+    request: { method: DELETE, path: /kv/never-existed }
+    expect:
+      status: 200
+      json: { deleted: 0 }
+
+teardown:
+  - name: cleanup any remaining keys
+    request: { method: DELETE, path: /kv/greeting }
+    expect:
+      status: 200

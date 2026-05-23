@@ -80,8 +80,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   YAML-defined request/assert cases against it. Supports `setup`,
   `tests`, `teardown` phases; variable capture between cases with
   `{{.var}}` interpolation in path/headers/body/query; strict JSON
-  subset matching with the `"*"` wildcard. `--json` for CI output.
-  Implemented in `infra/wavetest/` with 11 self-tests including an
+  subset matching with the `"*"` wildcard. `--json` for CI output,
+  `--verbose` to keep server logs visible.
+  By default, server boot prints + per-request access logs are
+  silenced via `syscall.Dup2` (Unix-only — no-op on Windows) so
+  the pass/fail report and `--json` envelope are clean. CI-safe
+  exit codes: 0 = all pass, 1 = test failures, 2 = bad invocation.
+  Three runnable suites ship with the framework:
+  `examples/apps/{url-shortener,kv-store,pastebin}/server.test.yaml`
+  totalling 22 cases that cover validation, capture+interpolate,
+  raw-body upload, teardown, and PK-violation 500s.
+  Go embedding API: `wavetest.RunFile` (logs visible, fits
+  `go test -v`) or `wavetest.RunFileWithOptions{Quiet: true}` for
+  silent runs. 12 self-tests in `infra/wavetest/` including an
   end-to-end test that boots a real Server through BuildHandler.
 - `wave fmt <file.yaml> [--check | --stdout]` — canonicalize YAML
   formatting via yaml.v3 round-trip. `--check` exits non-zero if

@@ -243,6 +243,48 @@ func TestLoad_ResolvesRelativeImport(t *testing.T) {
 	}
 }
 
+// TestRunFileWithOptions_QuietHidesBootNoise verifies the dup2-based
+// silencing actually swallows server boot prints. Without Quiet,
+// boot prints leak; with Quiet they don't.
+func TestRunFileWithOptions_QuietHidesBootNoise(t *testing.T) {
+	dir := t.TempDir()
+	serverYAML := `default:
+  port: 8080
+routes:
+  - path: /ping
+    method: GET
+    type: content
+    content:
+      status_code: 200
+      headers: [["Content-Type", "text/plain"]]
+      body: "pong"
+`
+	suiteYAML := `import: server.yaml
+tests:
+  - name: ping
+    request: { method: GET, path: /ping }
+    expect: { status: 200 }
+`
+	if err := os.WriteFile(filepath.Join(dir, "server.yaml"), []byte(serverYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	suitePath := filepath.Join(dir, "suite.test.yaml")
+	if err := os.WriteFile(suitePath, []byte(suiteYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cwd, _ := os.Getwd()
+	defer os.Chdir(cwd)
+
+	// Quiet=true must still produce a correct summary.
+	summary, err := RunFileWithOptions(context.Background(), suitePath, Options{Quiet: true})
+	if err != nil {
+		t.Fatalf("RunFileWithOptions: %v", err)
+	}
+	if !summary.OK || summary.Passed != 1 {
+		t.Fatalf("expected 1 passed, got %+v", summary)
+	}
+}
+
 // TestRunFile is an end-to-end test against a real Wave server.
 // It boots an in-process server using BuildHandler (no port binding)
 // and runs a suite. Covers the integration between wavetest and

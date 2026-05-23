@@ -105,11 +105,21 @@ wave test server.test.yaml
 #   4 passed, 0 failed, 0.01s
 ```
 
+By default, server boot logs + per-request access logs are silenced
+so the report is clean. To see them (e.g. when debugging a failing
+case), add `--verbose` (or `-v`).
+
 In CI:
 
 ```sh
-wave test server.test.yaml --json    # machine-readable, exits non-zero on failure
+wave test server.test.yaml --json    # machine-readable JSON
+echo $?                              # 0 on all-pass, 1 on any failure, 2 on bad invocation
 ```
+
+The `--json` envelope goes to stdout; any stderr is reserved for
+real errors (missing file, malformed YAML, suite couldn't boot the
+server). So `wave test … --json 2>/dev/null | jq` is safe in
+pipelines.
 
 ## Request shape
 
@@ -269,11 +279,17 @@ wave test server.test.yaml --json > /dev/null || {
 If you have a Go test suite already, drop into the runner directly:
 
 ```go
-import "github.com/luowensheng/wave/infra/wavetest"
+import (
+  "context"
+  "testing"
+  "github.com/luowensheng/wave/infra/wavetest"
+)
 
 func TestSuite(t *testing.T) {
+  // RunFile keeps server logs visible (useful in `go test -v`).
   s, err := wavetest.RunFile(context.Background(), "server.test.yaml")
   if err != nil { t.Fatal(err) }
+
   if !s.OK {
     for _, r := range s.Results {
       if !r.Passed {
@@ -282,6 +298,42 @@ func TestSuite(t *testing.T) {
     }
   }
 }
+```
+
+For a quieter run (no server boot prints during the test):
+
+```go
+s, err := wavetest.RunFileWithOptions(ctx, "server.test.yaml",
+  wavetest.Options{Quiet: true})
+```
+
+`Quiet` uses `syscall.Dup2` to redirect fd 1/2 to `/dev/null` for the
+duration of the run, then restores. Unix-only — no-op on Windows
+(use `--verbose` there).
+
+## Three working suites in the repo
+
+Each of these is a real, currently-passing test suite. Open them
+to see complete worked examples.
+
+| Suite | Tests | What it covers |
+|---|---:|---|
+| [`examples/apps/url-shortener/server.test.yaml`](https://github.com/luowensheng/wave/blob/main/examples/apps/url-shortener/server.test.yaml) | 8 | validation, capture+interpolate, redirect HTML body, duplicate-key 500 |
+| [`examples/apps/kv-store/server.test.yaml`](https://github.com/luowensheng/wave/blob/main/examples/apps/kv-store/server.test.yaml) | 9 | raw-body upload (`type: bytes`), 404 for unknown keys, teardown phase |
+| [`examples/apps/pastebin/server.test.yaml`](https://github.com/luowensheng/wave/blob/main/examples/apps/pastebin/server.test.yaml) | 5 | capture an id from POST and reuse it in GET |
+
+Run any of them:
+
+```sh
+git clone https://github.com/luowensheng/wave.git
+cd wave
+go install ./orchestrator
+wave test examples/apps/url-shortener/server.test.yaml
+#   PASS [test] built-in /healthz returns JSON with status ok (200, 1ms)
+#   PASS [test] unknown path returns framework 404 envelope (404, 0s)
+#   PASS [test] POST /shorten validates slug pattern (400, 0s)
+#   …
+#   8 passed, 0 failed, 0.00s
 ```
 
 ## Patterns
@@ -335,6 +387,52 @@ tests:
       error: page not found
       path:  /nope/anywhere
 ```
+
+## Gotcha: fixture state between runs
+
+The runner boots your **real** `server.yaml`. If your storage backend
+is `sqlite` with a path like `./data.db`, that file persists between
+test runs — and a "create row" test that passed on a clean DB will
+fail on the second run (duplicate key).
+
+Three ways to handle it:
+
+1. **Make tests idempotent** — write tests that work whether the
+   row already exists. Use `DELETE … WHERE …` in `setup:` or
+   `teardown:` to clean up.
+
+2. **Use a per-run database**. Override the path via env var, then
+   set the env var in the suite:
+
+   ```yaml
+   # server.yaml
+   storage:
+     app:
+       type: sqlite
+       path: "${env:DB_PATH}"
+
+   # server.test.yaml
+   env:
+     DB_PATH: "./.wave-test.db"
+   teardown:
+     - name: drop the test DB
+       request: { method: DELETE, path: /admin/drop }  # if you have one
+   ```
+
+   Then add `.wave-test.db` to `.gitignore` and delete it in CI between
+   runs.
+
+3. **Use an in-memory SQLite**:
+
+   ```yaml
+   env:
+     DB_PATH: ":memory:"
+   ```
+
+   Each `wave test` run gets a fresh empty DB; nothing persists.
+
+The third option is best for CI — fastest, no cleanup, no chance of
+test pollution.
 
 ## When wavetest isn't the right tool
 

@@ -161,10 +161,29 @@ func Load(suitePath string) (*Suite, string, error) {
 	return &s, abs, nil
 }
 
+// Options controls runner behavior.
+type Options struct {
+	// Quiet silences server boot prints + per-request access logs
+	// + stdlib log output for the duration of the run, by
+	// redirecting fd 1 and fd 2 to /dev/null via syscall.Dup2.
+	// Restored before RunFileWithOptions returns. Unix-only —
+	// no-op on Windows (use --verbose there to see all output).
+	Quiet bool
+}
+
 // RunFile loads a suite, builds the imported Wave server, and runs
-// every case. Returns the Summary regardless of pass/fail; check
-// .OK or .Failed to decide exit code.
+// every case with default options. Returns the Summary regardless
+// of pass/fail; check .OK or .Failed to decide exit code.
 func RunFile(ctx context.Context, suitePath string) (*Summary, error) {
+	return RunFileWithOptions(ctx, suitePath, Options{})
+}
+
+// RunFileWithOptions is RunFile with explicit options. The CLI
+// `wave test` calls this with Quiet=true unless --verbose is set,
+// so its pass/fail summary isn't drowned by the server's boot
+// prints + access logs. Go tests typically pass Options{} so they
+// can see the logs in -v output.
+func RunFileWithOptions(ctx context.Context, suitePath string, opts Options) (*Summary, error) {
 	suite, serverPath, err := Load(suitePath)
 	if err != nil {
 		return nil, err
@@ -175,6 +194,11 @@ func RunFile(ctx context.Context, suitePath string) (*Summary, error) {
 	// exit.
 	restoreEnv := setEnv(suite.Env)
 	defer restoreEnv()
+
+	if opts.Quiet {
+		restoreOut := silenceOutput()
+		defer restoreOut()
+	}
 
 	// Boot the server WITHOUT binding a port.
 	srv, err := servers.NewServer(serverPath)

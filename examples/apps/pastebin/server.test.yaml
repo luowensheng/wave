@@ -1,0 +1,54 @@
+# wavetest suite for pastebin.
+#
+#   wave test examples/apps/pastebin/server.test.yaml
+
+import: server.yaml
+
+tests:
+  - name: POST /pastes with empty content is rejected
+    request:
+      method: POST
+      path: /pastes
+      json:
+        content: ""
+        language: plaintext
+    expect:
+      status: 400
+
+  - name: POST /pastes creates a paste
+    request:
+      method: POST
+      path: /pastes
+      json:
+        content: "hello world"
+        language: plaintext
+    expect:
+      status: 200
+      json:
+        id: "*"
+    capture:
+      paste_id: json.id
+
+  - name: GET /pastes/{id}/slug returns the generated slug
+    request:
+      method: GET
+      path: /pastes/{{.paste_id}}/slug
+    expect:
+      status: 200
+      json:
+        slug: "*"
+
+  - name: GET nonexistent paste id slug → 200 + empty array (multi-row)
+    request:
+      method: GET
+      path: /pastes/999999/slug
+    expect:
+      # The route lacks if_empty_status, so an empty SELECT returns
+      # 200 with an empty result body. Documents current behavior.
+      status: 200
+
+  - name: GET /healthz still works alongside the app
+    request: { method: GET, path: /healthz }
+    expect:
+      status: 200
+      json: { status: ok }

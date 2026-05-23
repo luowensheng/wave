@@ -559,8 +559,16 @@ func loadServer() (*servers.Server, error) {
 //	wave test server.test.yaml --json     (machine-readable summary)
 //	wave test server.test.yaml --verbose  (per-case timing + status)
 func testCmd() {
+	// Use fmt.Fprintln(os.Stderr, ...) + os.Exit(1) instead of
+	// log.Fatal: Wave's logger redirects stdlib `log` to a file at
+	// boot, so log.Fatal silently swallows the message at the
+	// terminal — terrible UX for a CLI error.
+	die := func(msg string) {
+		fmt.Fprintln(os.Stderr, msg)
+		os.Exit(2)
+	}
 	if len(os.Args) < 3 {
-		log.Fatal("Usage: wave test <suite.test.yaml> [--json | --verbose]")
+		die("Usage: wave test <suite.test.yaml> [--json | --verbose]")
 	}
 	jsonOut := false
 	verbose := false
@@ -578,24 +586,30 @@ func testCmd() {
 		}
 	}
 	if suite == "" {
-		log.Fatal("test: a suite path is required (e.g. server.test.yaml)")
+		die("test: a suite path is required (e.g. server.test.yaml)")
 	}
 	absSuite, err := filepath.Abs(suite)
 	if err != nil {
-		log.Fatal(err)
+		die("test: " + err.Error())
 	}
 	// `wave test` is the only command we run that needs the suite's
 	// directory as cwd so server.yaml relative paths resolve.
 	if err := os.Chdir(filepath.Dir(absSuite)); err != nil {
-		log.Fatal(err)
+		die("test: chdir: " + err.Error())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	summary, err := wavetest.RunFile(ctx, absSuite)
+	// Default mode silences server boot prints + access logs (via
+	// fd-level dup2) so the pass/fail report and JSON envelope are
+	// clean. --verbose keeps everything visible.
+	summary, err := wavetest.RunFileWithOptions(ctx, absSuite, wavetest.Options{
+		Quiet: !verbose,
+	})
 	if err != nil {
-		log.Fatalf("test: %v", err)
+		fmt.Fprintf(os.Stderr, "test: %v\n", err)
+		os.Exit(1)
 	}
 
 	if jsonOut {
@@ -608,8 +622,7 @@ func testCmd() {
 		return
 	}
 
-	// Human-readable. One line per case in non-verbose; verbose adds
-	// per-case errors inline.
+	// Human-readable. One line per case; per-case errors inline.
 	for _, r := range summary.Results {
 		icon := "PASS"
 		if !r.Passed {
@@ -619,9 +632,6 @@ func testCmd() {
 			icon, r.Phase, r.Name, r.Status, r.Duration.Round(time.Millisecond))
 		for _, e := range r.Errors {
 			fmt.Printf("       %s\n", e)
-		}
-		if verbose && r.Passed && len(r.Errors) == 0 {
-			// nothing extra to print
 		}
 	}
 	fmt.Println()
