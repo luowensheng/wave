@@ -53,6 +53,8 @@ deploys as a single binary or a 25 MB distroless container.
 
 ## What ships in the box
 
+**[→ Full feature inventory](https://luowensheng.github.io/wave/reference/features)** — every route type, middleware, CLI subcommand, plugin kind, in one searchable page.
+
 | | Count | What |
 |---|---:|---|
 | **Route types** | 28 | `storage-access`, `task`, `match`, `forward`, `auth-login`, `magic-link-*`, `oauth-*`, `totp-*`, `webhook` (with signature verify), `stream-publish`, `schedule`, `process`, `plugin`, `graphql`, `file-server`, … |

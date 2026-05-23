@@ -1,5 +1,11 @@
 # Reference
 
+::: tip Want the full feature list?
+**[→ Full feature inventory](/reference/features)** — every route
+type, every middleware, every CLI command, every plugin kind. One
+page, searchable, with the YAML key shown for each thing.
+:::
+
 The reference docs are split across two places while the framework
 is pre-1.0:
 

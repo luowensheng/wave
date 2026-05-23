@@ -24,6 +24,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/quickstart', activeMatch: '/guide/' },
       { text: 'Cookbook', link: '/cookbook/', activeMatch: '/cookbook/' },
+      { text: 'Features', link: '/reference/features', activeMatch: '/reference/features' },
       { text: 'Reference', link: '/reference/', activeMatch: '/reference/' },
       { text: 'AI Agents', link: '/ai/', activeMatch: '/ai/' },
       {
@@ -135,6 +136,7 @@ export default defineConfig({
           text: 'Reference',
           items: [
             { text: 'Overview', link: '/reference/' },
+            { text: 'Full feature inventory', link: '/reference/features' },
           ],
         },
       ],

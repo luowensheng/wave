@@ -133,13 +133,17 @@ fewer hallucinations. [See the full comparison →](/ai/token-efficiency)
 - **28 route types** covering CRUD, auth, webhooks, scheduling, SSE, files, GraphQL, multi-tenant routing, …
 - **64 runnable demo apps** under [`examples/apps/`](https://github.com/luowensheng/wave/tree/main/examples/apps) — including chat, polls, todo, pastebin, multi-tenant SaaS, Stripe receiver, SSE chat, photo gallery, OIDC, SAML, audit-logged admin
 - **3 ready-to-run wavetest suites** in `examples/apps/{url-shortener,kv-store,pastebin}/server.test.yaml`
-- **11 CLI commands** including `serve`, `test`, `validate`, `fmt`, `doctor`, `init`, `migrate`, `outbox`
+- **14 CLI commands** including `serve`, `test`, `validate`, `fmt`, `doctor`, `init`, `migrate`, `outbox`, `studio`, `completion`
 - **Auth providers**: magic link, OAuth (Google/GitHub/Apple), OIDC, SAML (plugin), TOTP, JWT
 - **Webhook providers** with signature verification: Stripe, GitHub, Slack, generic HMAC
 - **Observability**: Prometheus `/metrics`, OpenTelemetry traces, JSON access logs, audit log
 - **Reliability**: outbox CLI, circuit breaker, rate limiter, body-size limits, response cache
 - **Deploy**: macOS / Linux / Windows binaries + distroless Docker image (~25 MB)
 - **Single binary**: `wave serve config.yaml` — no language runtime
+
+**[→ See the full feature inventory](/reference/features)** — every
+route type, every middleware, every CLI subcommand, every plugin
+kind, in one searchable page.
 
 ## YAML-driven functional tests
 
