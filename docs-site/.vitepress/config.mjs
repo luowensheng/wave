@@ -43,6 +43,26 @@ export default defineConfig({
             { text: 'What is Wave?', link: '/guide/' },
             { text: 'Quickstart', link: '/guide/quickstart' },
             { text: 'Install', link: '/guide/install' },
+            { text: 'Tutorial: build a todo API', link: '/guide/tutorial' },
+          ],
+        },
+        {
+          text: 'Concepts',
+          items: [
+            { text: 'Routes', link: '/guide/concepts-routes' },
+            { text: 'Inputs', link: '/guide/concepts-inputs' },
+            { text: 'Storage', link: '/guide/concepts-storage' },
+            { text: 'Plugins', link: '/guide/concepts-plugins' },
+            { text: 'Auth', link: '/guide/concepts-auth' },
+            { text: 'Observability', link: '/guide/concepts-observability' },
+          ],
+        },
+        {
+          text: 'Deployment',
+          items: [
+            { text: 'Docker', link: '/guide/deploy-docker' },
+            { text: 'Fly.io', link: '/guide/deploy-fly' },
+            { text: 'Production checklist', link: '/guide/deploy-checklist' },
           ],
         },
         {
@@ -50,19 +70,51 @@ export default defineConfig({
           items: [
             { text: 'Comparison vs alternatives', link: '/guide/comparison' },
             { text: 'FAQ', link: '/guide/faq' },
+            { text: 'Privacy', link: '/guide/privacy' },
           ],
         },
       ],
 
       '/cookbook/': [
         {
-          text: 'Cookbook',
+          text: 'Backend basics',
           items: [
             { text: 'Index', link: '/cookbook/' },
             { text: 'JSON API with SQLite', link: '/cookbook/json-api' },
+            { text: 'File uploads & downloads', link: '/cookbook/file-uploads' },
+            { text: 'Rate-limit an endpoint', link: '/cookbook/rate-limit' },
+          ],
+        },
+        {
+          text: 'Auth',
+          items: [
+            { text: 'Magic-link login', link: '/cookbook/magic-link-login' },
+            { text: 'OAuth (Google/GitHub/Apple)', link: '/cookbook/oauth' },
+            { text: 'Audit log every mutation', link: '/cookbook/audit-log' },
+          ],
+        },
+        {
+          text: 'Routing',
+          items: [
             { text: 'Multi-tenant by Host header', link: '/cookbook/multi-tenant' },
             { text: 'Device detection (mobile UA)', link: '/cookbook/device-detection' },
+            { text: 'A/B testing via cookie', link: '/cookbook/ab-testing' },
             { text: 'CORS for a method-bound route', link: '/cookbook/cors-preflight' },
+          ],
+        },
+        {
+          text: 'Streaming & jobs',
+          items: [
+            { text: 'Stream events with SSE', link: '/cookbook/sse' },
+            { text: 'Background tasks', link: '/cookbook/background-tasks' },
+            { text: 'Schedule a cron job', link: '/cookbook/schedule' },
+          ],
+        },
+        {
+          text: 'Integrations',
+          items: [
+            { text: 'Forward Stripe webhooks', link: '/cookbook/stripe-webhooks' },
+            { text: 'Outbox-backed delivery', link: '/cookbook/outbox' },
           ],
         },
       ],
@@ -81,6 +133,10 @@ export default defineConfig({
           text: 'AI agents',
           items: [
             { text: 'Overview', link: '/ai/' },
+            { text: 'Claude Code skill', link: '/ai/claude-code' },
+            { text: 'Cursor + editors', link: '/ai/editors' },
+            { text: 'Prompt patterns', link: '/ai/prompts' },
+            { text: 'llms.txt', link: '/ai/llms-txt' },
           ],
         },
       ],
