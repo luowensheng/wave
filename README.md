@@ -141,6 +141,24 @@ Wave isn't a replacement for React, Node, or Python. It's a complement:
 - [**Wave + Python ML service**](https://luowensheng.github.io/wave/cookbook/python-sidekick) — wrap a FastAPI/model server with auth + SSE + 202-task patterns
 - [**Migrate from Express incrementally**](https://luowensheng.github.io/wave/cookbook/migrate-from-express) — route-at-a-time, no big-bang
 
+## Popular integrations — copy-paste recipes
+
+The most-asked "how do I plug Wave into X?" recipes:
+
+- [**Sign in with Google**](https://luowensheng.github.io/wave/cookbook/google-signin) — OIDC, domain-gated
+- [**Stripe Checkout**](https://luowensheng.github.io/wave/cookbook/stripe-checkout) (and [webhooks](https://luowensheng.github.io/wave/cookbook/stripe-webhooks))
+- [**OpenAI / Claude / Ollama chat**](https://luowensheng.github.io/wave/cookbook/openai-claude) — streaming tokens via task + plugin
+- [**Transactional email**](https://luowensheng.github.io/wave/cookbook/send-email) — Resend / SendGrid / Postmark / Mailgun
+- [**SMS via Twilio**](https://luowensheng.github.io/wave/cookbook/twilio-sms) — verify codes, 2FA, alerts
+- [**Slack slash command**](https://luowensheng.github.io/wave/cookbook/slack-slash-command) — signature-verified, sub-3-second response
+- [**S3 / R2 / B2 uploads**](https://luowensheng.github.io/wave/cookbook/s3-r2-uploads) — pre-signed PUT, bypass-Wave for bytes
+- [**Firebase Cloud Messaging**](https://luowensheng.github.io/wave/cookbook/firebase-fcm) — iOS / Android / web push
+- [**Supabase / Neon / Railway Postgres**](https://luowensheng.github.io/wave/cookbook/supabase-postgres) — managed Postgres via plugin
+
+Same `type: fetch` / `webhook_sig:` / `type: plugin` primitives — once you've done one, the rest are copy-paste.
+
+Don't see what you need? [**Build a plugin (any language)**](https://luowensheng.github.io/wave/cookbook/build-plugin) — same echo plugin in Go, Python, Node, Rust, and 9-line Bash.
+
 ## Pick your path
 
 | You are… | Start here |

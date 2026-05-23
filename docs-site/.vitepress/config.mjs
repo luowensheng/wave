@@ -86,14 +86,14 @@ export default defineConfig({
             { text: 'File uploads & downloads', link: '/cookbook/file-uploads' },
             { text: 'Rate-limit an endpoint', link: '/cookbook/rate-limit' },
             { text: 'Functional testing (`wave test`)', link: '/cookbook/testing' },
-            { text: 'Build a plugin (any language)', link: '/cookbook/build-plugin' },
           ],
         },
         {
           text: 'Auth',
           items: [
+            { text: 'Sign in with Google', link: '/cookbook/google-signin' },
+            { text: 'OAuth (GitHub / Apple / generic)', link: '/cookbook/oauth' },
             { text: 'Magic-link login', link: '/cookbook/magic-link-login' },
-            { text: 'OAuth (Google/GitHub/Apple)', link: '/cookbook/oauth' },
             { text: 'Audit log every mutation', link: '/cookbook/audit-log' },
           ],
         },
@@ -115,10 +115,24 @@ export default defineConfig({
           ],
         },
         {
-          text: 'Integrations',
+          text: 'Third-party integrations',
           items: [
-            { text: 'Forward Stripe webhooks', link: '/cookbook/stripe-webhooks' },
+            { text: 'Send transactional email', link: '/cookbook/send-email' },
+            { text: 'Stripe Checkout', link: '/cookbook/stripe-checkout' },
+            { text: 'Stripe webhooks', link: '/cookbook/stripe-webhooks' },
+            { text: 'OpenAI / Claude chat', link: '/cookbook/openai-claude' },
+            { text: 'SMS via Twilio', link: '/cookbook/twilio-sms' },
+            { text: 'Slack slash command', link: '/cookbook/slack-slash-command' },
+            { text: 'Image upload to S3 / R2', link: '/cookbook/s3-r2-uploads' },
+            { text: 'Push via Firebase FCM', link: '/cookbook/firebase-fcm' },
+            { text: 'Supabase / Neon Postgres', link: '/cookbook/supabase-postgres' },
             { text: 'Outbox-backed delivery', link: '/cookbook/outbox' },
+          ],
+        },
+        {
+          text: 'Extending Wave',
+          items: [
+            { text: 'Build a plugin (any language)', link: '/cookbook/build-plugin' },
           ],
         },
         {

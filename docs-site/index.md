@@ -145,6 +145,21 @@ fewer hallucinations. [See the full comparison →](/ai/token-efficiency)
 route type, every middleware, every CLI subcommand, every plugin
 kind, in one searchable page.
 
+## Popular integrations — copy-paste recipes
+
+The "how do I plug Wave into X?" recipes for the most-asked third-party tools:
+
+| | | |
+|---|---|---|
+| [**Sign in with Google**](/cookbook/google-signin) | [**Stripe Checkout**](/cookbook/stripe-checkout) | [**OpenAI / Claude chat**](/cookbook/openai-claude) |
+| [**Transactional email**](/cookbook/send-email) (Resend / SendGrid / Postmark) | [**SMS via Twilio**](/cookbook/twilio-sms) | [**Slack slash command**](/cookbook/slack-slash-command) |
+| [**S3 / R2 / B2 uploads**](/cookbook/s3-r2-uploads) | [**Firebase push (FCM)**](/cookbook/firebase-fcm) | [**Supabase / Neon Postgres**](/cookbook/supabase-postgres) |
+
+Every recipe is self-contained, runnable, and uses the same small set
+of Wave primitives — once you've done one, the rest are copy-paste.
+
+**[→ See the cookbook](/cookbook/)** for all 30+ recipes (auth, routing, streaming, jobs, third-party, plugin authoring, stack integration).
+
 ## YAML-driven functional tests
 
 Same execution path as production, no port binding, runs in <10 ms:
