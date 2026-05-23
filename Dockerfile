@@ -10,7 +10,7 @@
 #            -v $PWD/server.yaml:/app/server.yaml wave:dev \
 #            serve /app/server.yaml --host 0.0.0.0 --port 8080
 
-FROM golang:1.24 AS build
+FROM golang:1.26 AS build
 WORKDIR /src
 
 # Build-time metadata injected as ldflags into the binary so
