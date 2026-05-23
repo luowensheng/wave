@@ -10,6 +10,7 @@ Most have a matching runnable demo in
 - [**File uploads & downloads**](/cookbook/file-uploads) — multipart form, served binary
 - [**Rate-limit an endpoint**](/cookbook/rate-limit) — token bucket, by IP or user claim
 - [**Functional testing (`wave test`)**](/cookbook/testing) — YAML test suites, in-process server, CI-ready
+- [**Build a plugin (any language)**](/cookbook/build-plugin) — same echo plugin in Go, Python, Node, Rust, Bash
 
 ## Auth
 

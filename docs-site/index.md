@@ -53,10 +53,10 @@ features:
     link: /guide/concepts-observability
     linkText: Observability
   - icon: 🔌
-    title: Extensible by plugin
-    details: 'Out-of-process plugins speak a small JSON contract — write them in any language. Storage backends, secrets, auth providers, observability exporters.'
-    link: /guide/concepts-plugins
-    linkText: Plugins
+    title: Plugins in any language
+    details: 'Out-of-process workers speaking a tiny JSON contract — Go, Python, Node, Rust, even 9-line Bash + jq. Five kinds: handler, storage, auth, secrets, observability exporter.'
+    link: /cookbook/build-plugin
+    linkText: Build one
   - icon: ✋
     title: Never phones home
     details: 'No telemetry, no analytics, no remote config. The single binary only contacts services you configure. Verify with `strace`.'

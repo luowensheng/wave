@@ -318,7 +318,18 @@ and observability exporters.
 **Per-plugin config**: `command`, `address`, `timeout`, `env`,
 `retries`, `retry_backoff`.
 
-→ [Plugins concept](/guide/concepts-plugins) · [docs/plugins.md](https://github.com/luowensheng/wave/blob/main/docs/plugins.md)
+**6 reference implementations** in
+[`examples/plugins/`](https://github.com/luowensheng/wave/tree/main/examples/plugins):
+`echo` (handler, no-SDK), `echo-handler` (handler, SDK),
+`postgres-storage` (storage), `vault-secrets` (secrets),
+`saml-auth` (auth), `otel-exporter` (exporter).
+
+**Go SDK** at [`sdk/wave/`](https://github.com/luowensheng/wave/tree/main/sdk/wave)
+handles JSON-RPC framing for long-lived plugins. Other languages
+implement the wire spec directly — the contract is small enough to
+do in 9 lines of Bash.
+
+→ [**Build a plugin (any language)**](/cookbook/build-plugin) · [**Plugin contract reference**](/reference/plugin-contract) · [Plugins concept](/guide/concepts-plugins)
 
 ---
 

@@ -86,6 +86,7 @@ export default defineConfig({
             { text: 'File uploads & downloads', link: '/cookbook/file-uploads' },
             { text: 'Rate-limit an endpoint', link: '/cookbook/rate-limit' },
             { text: 'Functional testing (`wave test`)', link: '/cookbook/testing' },
+            { text: 'Build a plugin (any language)', link: '/cookbook/build-plugin' },
           ],
         },
         {
@@ -137,6 +138,7 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/reference/' },
             { text: 'Full feature inventory', link: '/reference/features' },
+            { text: 'Plugin contract', link: '/reference/plugin-contract' },
           ],
         },
       ],

@@ -1,13 +1,28 @@
 # Plugins
 
-Plugins are out-of-process workers that extend Wave. They speak a
-small JSON contract over stdin/stdout, HTTP, or a long-lived socket.
+Plugins are **out-of-process workers** that extend Wave. They speak
+a small JSON contract over stdin/stdout, HTTP, or a long-lived
+socket — so they can be written in **any language**.
 
-**Why out-of-process?**
+::: tip Quick links
+- [**Build a plugin (in any language)**](/cookbook/build-plugin) — worked examples in Go, Python, Node, Rust, Bash
+- [**Plugin contract reference**](/reference/plugin-contract) — every JSON-RPC method per kind, full wire format
+- [`sdk/wave/`](https://github.com/luowensheng/wave/tree/main/sdk/wave) — Go SDK (use as reference when porting to other languages)
+- [`examples/plugins/`](https://github.com/luowensheng/wave/tree/main/examples/plugins) — 6 production-grade reference implementations
+:::
 
-- A misbehaving plugin can't take down the server.
-- Plugins can be written in any language.
-- Plugins are versioned and shipped separately from Wave.
+## Why out-of-process?
+
+- **A misbehaving plugin can't take down the server.** A crash, a
+  memory leak, an infinite loop — all confined to the plugin
+  process. Wave keeps serving.
+- **Plugins can be written in any language.** Python for ML/data,
+  Node for npm-ecosystem things, Rust for systems code, even
+  Bash + `jq` for shell wrappers. Wave doesn't care.
+- **Plugins are versioned and shipped separately.** Different team,
+  different release cadence. Pin a plugin binary by hash.
+- **The contract is small.** Five fields in, three out for a basic
+  handler. You can write a complete plugin in 9 lines of shell.
 
 ## The contract
 
@@ -152,10 +167,23 @@ The same plugin contract is reused across Wave:
 
 Same JSON envelope; different trigger_keys.
 
+## Six reference implementations
+
+All under [`examples/plugins/`](https://github.com/luowensheng/wave/tree/main/examples/plugins) — copy and modify:
+
+| Plugin | Kind | What it does |
+|---|---|---|
+| [`echo`](https://github.com/luowensheng/wave/tree/main/examples/plugins/echo) | handler | Subprocess one-shot reference (no SDK) — ~40 lines of Go |
+| [`echo-handler`](https://github.com/luowensheng/wave/tree/main/examples/plugins/echo-handler) | handler | Long-lived reference using `sdk.RunHandler` |
+| [`postgres-storage`](https://github.com/luowensheng/wave/tree/main/examples/plugins/postgres-storage) | storage | PostgreSQL backend via pgx |
+| [`vault-secrets`](https://github.com/luowensheng/wave/tree/main/examples/plugins/vault-secrets) | secrets | HashiCorp Vault KV-v2 backend |
+| [`saml-auth`](https://github.com/luowensheng/wave/tree/main/examples/plugins/saml-auth) | auth | SAML 2.0 SP via crewjam/saml |
+| [`otel-exporter`](https://github.com/luowensheng/wave/tree/main/examples/plugins/otel-exporter) | exporter | OpenTelemetry OTLP exporter |
+
 ## See also
 
-- [docs/plugins.md](https://github.com/luowensheng/wave/blob/main/docs/plugins.md)
-  — full contract spec
+- [**Build a plugin (in any language)**](/cookbook/build-plugin) — same plugin in Go, Python, Node, Rust, Bash
+- [**Plugin contract reference**](/reference/plugin-contract) — exact JSON-RPC methods per kind
+- [docs/plugins.md](https://github.com/luowensheng/wave/blob/main/docs/plugins.md), [auth-plugins.md](https://github.com/luowensheng/wave/blob/main/docs/auth-plugins.md), [storage-plugins.md](https://github.com/luowensheng/wave/blob/main/docs/storage-plugins.md), [secrets-plugins.md](https://github.com/luowensheng/wave/blob/main/docs/secrets-plugins.md), [exporter-plugins.md](https://github.com/luowensheng/wave/blob/main/docs/exporter-plugins.md) — per-kind formal spec
 - [Background tasks](/cookbook/background-tasks) — the most common
   use of `type: plugin` chained with SSE
-- Demos: [`plugin-starter`](https://github.com/luowensheng/wave/tree/main/examples/apps/multi-plugin-stack)
