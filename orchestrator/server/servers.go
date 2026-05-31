@@ -14,30 +14,31 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/luowensheng/wave/orchestrator/features/auth"
-	"github.com/luowensheng/wave/infra/audit"
-	"github.com/luowensheng/wave/infra/bundler"
-	"github.com/luowensheng/wave/infra/connections"
-	"github.com/luowensheng/wave/infra/errreport"
-	"github.com/luowensheng/wave/infra/forwardauth"
-	infrahttp "github.com/luowensheng/wave/infra/http"
-	"github.com/luowensheng/wave/infra/httpclient"
-	"github.com/luowensheng/wave/infra/inputs"
-	"github.com/luowensheng/wave/infra/ipfilter"
-	"github.com/luowensheng/wave/infra/net"
-	"github.com/luowensheng/wave/infra/observability"
-	"github.com/luowensheng/wave/infra/common"
-	"github.com/luowensheng/wave/infra/plugins"
-	"github.com/luowensheng/wave/infra/rbac"
-	"github.com/luowensheng/wave/infra/secrets"
-	"github.com/luowensheng/wave/infra/webhooksig"
-	"github.com/luowensheng/wave/usecases/match"
-	"github.com/luowensheng/wave/usecases/routes"
-	"github.com/luowensheng/wave/usecases/schedule"
-	storageaccess "github.com/luowensheng/wave/usecases/storage_access"
-	taskroute "github.com/luowensheng/wave/usecases/task"
-	"github.com/luowensheng/wave/orchestrator/features/storage"
-	orchusecases "github.com/luowensheng/wave/orchestrator/usecases"
+	"github.com/olivierdevelops/wave/orchestrator/features/auth"
+	"github.com/olivierdevelops/wave/infra/audit"
+	"github.com/olivierdevelops/wave/infra/bundler"
+	"github.com/olivierdevelops/wave/infra/capyhost"
+	"github.com/olivierdevelops/wave/infra/connections"
+	"github.com/olivierdevelops/wave/infra/errreport"
+	"github.com/olivierdevelops/wave/infra/forwardauth"
+	infrahttp "github.com/olivierdevelops/wave/infra/http"
+	"github.com/olivierdevelops/wave/infra/httpclient"
+	"github.com/olivierdevelops/wave/infra/inputs"
+	"github.com/olivierdevelops/wave/infra/ipfilter"
+	"github.com/olivierdevelops/wave/infra/net"
+	"github.com/olivierdevelops/wave/infra/observability"
+	"github.com/olivierdevelops/wave/infra/common"
+	"github.com/olivierdevelops/wave/infra/plugins"
+	"github.com/olivierdevelops/wave/infra/rbac"
+	"github.com/olivierdevelops/wave/infra/secrets"
+	"github.com/olivierdevelops/wave/infra/webhooksig"
+	"github.com/olivierdevelops/wave/usecases/match"
+	"github.com/olivierdevelops/wave/usecases/routes"
+	"github.com/olivierdevelops/wave/usecases/schedule"
+	storageaccess "github.com/olivierdevelops/wave/usecases/storage_access"
+	taskroute "github.com/olivierdevelops/wave/usecases/task"
+	"github.com/olivierdevelops/wave/orchestrator/features/storage"
+	orchusecases "github.com/olivierdevelops/wave/orchestrator/usecases"
 
 	"log"
 
@@ -302,15 +303,28 @@ func (s *Server) HandleFunc(route *Route) error {
 func (s *Server) wrapRouteMiddleware(route *Route, handler http.HandlerFunc) (http.HandlerFunc, error) {
 	pattern := strings.TrimSpace(fmt.Sprintf("%s %s", route.Method, route.Path))
 
-	allowedMethods := []string{}
-	route.Methods = append(route.Methods, route.Method)
-	for _, method := range route.Methods {
-		m := strings.ToUpper(strings.TrimSpace(method))
+	// Build the allow-list locally. Do NOT mutate route.Methods: the
+	// hasRoot detection at the end of Bootstrap inspects len(r.Methods)
+	// to decide whether the user already claimed "/", and mutating it
+	// here would silently bypass that guard and panic on duplicate
+	// pattern registration.
+	allowedMethods := make([]string, 0, len(route.Methods)+1)
+	seen := make(map[string]struct{}, len(route.Methods)+1)
+	addMethod := func(m string) {
+		m = strings.ToUpper(strings.TrimSpace(m))
 		if m == "" {
-			continue
+			return
 		}
+		if _, dup := seen[m]; dup {
+			return
+		}
+		seen[m] = struct{}{}
 		allowedMethods = append(allowedMethods, m)
 	}
+	for _, method := range route.Methods {
+		addMethod(method)
+	}
+	addMethod(route.Method)
 
 	var wrappedHandler http.HandlerFunc
 
@@ -832,7 +846,7 @@ func ProbeConfig(configPath string) (*Config, error) {
 
 func loadConfig(configPath string) (*Config, error) {
 
-	bytes, err := os.ReadFile(configPath)
+	bytes, err := capyhost.ReadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1073,10 +1087,12 @@ func (s *Server) BuildHandler(ctx context.Context) (http.Handler, error) {
 	} else {
 		// Skip the built-in fallback if the user already claimed "/"
 		// as a normal route — would otherwise panic on duplicate
-		// pattern registration.
+		// pattern registration. Match on Path alone: any user route
+		// at "/" wins, regardless of whether the slot is filled by
+		// Method, Methods, or left blank (which mux treats as "any").
 		hasRoot := false
 		for _, r := range s.Config.Routes {
-			if r.Path == "/" && r.Method == "" && len(r.Methods) == 0 {
+			if r.Path == "/" {
 				hasRoot = true
 				break
 			}
